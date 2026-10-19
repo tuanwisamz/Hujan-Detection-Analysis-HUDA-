@@ -1,0 +1,22 @@
+# Backup trigger for the 10-min pipeline (primary is Supabase pg_cron).
+# Safe to run alongside pg_cron: /internal/ingest skips if a run started < 8 min ago (D12).
+name: backup-cron
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingest
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST "$API_BASE_URL/internal/ingest" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}' --max-time 30

@@ -1,0 +1,262 @@
+// In-memory mock of the HUDA API (api-spec.md). Lets the frontend run with no backend:
+// VITE_USE_MOCKS=true. State resets on reload.
+import { ago, iso, REPORT_MD, seedLogs, seedPredictions, seedRuns, seedWarnings, SETTINGS, ZONES } from '../mocks/seed'
+import { ApiError } from './api'
+
+const state = {
+  zones: structuredClone(ZONES),
+  predictions: seedPredictions(),
+  warnings: seedWarnings(),
+  logs: seedLogs(),
+  runs: seedRuns(),
+  settings: structuredClone(SETTINGS),
+  subs: [{ zone_id: 'z01', min_level: 'AMBER' }, { zone_id: 'z02', min_level: 'AMBER' }],
+  me: { id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', language: 'en', telegram_linked: false, onboarded: true },
+  reports: [
+    { id: 'r1', type: 'custom', zone_ids: null, period_start: ago(10080), period_end: ago(0), created_by: 'user_demo', created_at: ago(60), status: 'ready', content_md: REPORT_MD },
+  ],
+  conversations: {},
+}
+
+const delay = (ms) => new Promise((r) => setTimeout(r, ms))
+const role = () => {
+  try {
+    return localStorage.getItem('huda.mockRole') || 'admin'
+  } catch {
+    return 'admin'
+  }
+}
+const zone = (id) => state.zones.find((z) => z.id === id || z.slug === id)
+const live = (z) => {
+  const p = state.predictions[z.id] || {}
+  return {
+    ...z,
+    level: p.level ?? null,
+    rain_rate_max: p.rain_rate_max ?? null,
+    eta_min: p.eta_min ?? null,
+    p_ml: p.p_ml ?? null,
+    official_warning: p.official_warning ?? null,
+    replay: false,
+    subscribed: state.subs.some((s) => s.zone_id === z.id),
+    updated_at: p.ts ?? null,
+  }
+}
+const warningOut = (w) => ({ ...w, zone: zone(w.zone_id)?.name, zone_slug: zone(w.zone_id)?.slug })
+const log = (category, message, meta = {}) =>
+  state.logs.unshift({ id: Date.now(), ts: iso(Date.now()), severity: 'info', category, actor: role() === 'admin' ? 'admin_demo' : 'user_demo', message, meta })
+const requireAdmin = () => {
+  if (role() !== 'admin') throw new ApiError(403, 'FORBIDDEN', 'Admin role required')
+}
+
+let radarCache = null
+async function radarFrames() {
+  if (!radarCache || Date.now() - radarCache.at > 60000) {
+    try {
+      const data = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json()
+      const observed = data.radar.past.map((f) => ({
+        ts: iso(f.time * 1000),
+        tile_url: `${data.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,
+        max_native_zoom: 7,
+      }))
+      radarCache = { at: Date.now(), observed }
+    } catch {
+      radarCache = { at: Date.now(), observed: [] }
+    }
+  }
+  return { observed: radarCache.observed, nowcast: [], attribution: 'Weather radar by RainViewer' }
+}
+
+function timeseries(id, hours) {
+  const p = state.predictions[id]
+  const steps = hours * 6
+  return Array.from({ length: steps }, (_, i) => {
+    const m = (steps - 1 - i) * 10
+    const t = i / steps
+    const rate = p.level === 'RED' ? Math.max(0, 40 * t ** 3 + Math.sin(i) * 2) : p.level === 'AMBER' ? 18 * t ** 2 : Math.abs(Math.sin(i / 3)) * 1.5
+    const level = rate >= 30 || (p.level === 'RED' && i > steps - 3) ? 'RED' : rate >= 10 ? 'AMBER' : 'GREEN'
+    return { ts: ago(m + 3), level, rain_rate_max: +rate.toFixed(1), p_ml: +Math.min(0.95, (p.p_ml ?? 0.1) * (0.4 + t * 0.6)).toFixed(2) }
+  })
+}
+
+function page(items, query) {
+  const limit = Number(query.limit || 50)
+  const offset = Number(query.cursor || 0)
+  const slice = items.slice(offset, offset + limit)
+  return { items: slice, next_cursor: offset + limit < items.length ? String(offset + limit) : null }
+}
+
+function chatReply(message) {
+  const text = message.toLowerCase()
+  const at = (id) => state.predictions[id]
+  if (text.includes('which') || text.includes('mana') || text.includes('risk')) {
+    const risky = state.zones.filter((z) => ['AMBER', 'RED'].includes(at(z.id)?.level))
+    return {
+      reply: `${risky.length} townships are at Moderate or High: ${risky.map((z) => `${z.name} (${at(z.id).level})`).join(', ')}. City of Elmina is highest — heavy rain expected in about 20 minutes.`,
+      tool_calls: [{ name: 'get_zone_status', args: {} }],
+    }
+  }
+  if (text.includes('met') || text.includes('warning') || text.includes('amaran')) {
+    return { reply: 'Yes — MET Malaysia has an active thunderstorm warning covering Petaling. It applies to City of Elmina, Denai Alam, Bukit Jelutong and Bukit Subang.', tool_calls: [{ name: 'get_official_warnings', args: { zone: 'Petaling' } }] }
+  }
+  return {
+    reply: 'Yes — radar shows a cell moving east; rain up to ~38 mm/h is expected over City of Elmina in about 20 minutes. Level: RED. Avoid underpasses and move vehicles to higher ground.',
+    tool_calls: [
+      { name: 'get_zone_status', args: { zone: 'city-of-elmina' } },
+      { name: 'get_nowcast', args: { zone: 'city-of-elmina' } },
+    ],
+  }
+}
+
+const routes = [
+  ['GET', /^\/health$/, () => ({ status: 'ok', last_run_at: state.runs[0].finished_at, last_run_status: 'ok', model_version: 'lgbm_v1' })],
+  ['POST', /^\/me\/sync$/, () => ({ ...state.me, role: role() })],
+  ['GET', /^\/me$/, () => ({ ...state.me, role: role() })],
+  ['PATCH', /^\/me$/, (_m, _q, b) => Object.assign(state.me, b) && { ...state.me, role: role() }],
+  ['GET', /^\/me\/subscriptions$/, () => ({ subscriptions: state.subs })],
+  ['PUT', /^\/me\/subscriptions$/, (_m, _q, b) => ({ subscriptions: (state.subs = b.subscriptions) })],
+  ['POST', /^\/me\/telegram\/link$/, () => {
+    setTimeout(() => (state.me.telegram_linked = true), 4000)
+    return { code: 'HUDA-7F3K2', deep_link: 'https://t.me/huda_alert_bot?start=HUDA-7F3K2', expires_at: ago(-15) }
+  }],
+  ['DELETE', /^\/me\/telegram\/link$/, () => {
+    state.me.telegram_linked = false
+    return null
+  }],
+  ['GET', /^\/live\/summary$/, () => {
+    const zones = state.zones.filter((z) => z.active).map(live).sort((a, b) => b.subscribed - a.subscribed || a.name.localeCompare(b.name))
+    const counts = { GREEN: 0, AMBER: 0, RED: 0 }
+    zones.forEach((z) => z.level && counts[z.level]++)
+    return { generated_at: iso(Date.now()), data_status: { radar: 'ok', open_meteo: 'ok', met_warnings: 'ok' }, counts, zones }
+  }],
+  ['GET', /^\/radar\/frames$/, () => radarFrames()],
+  ['GET', /^\/zones$/, (_m, q) => ({ items: state.zones.filter((z) => (q.active === 'all' ? true : q.active === 'false' ? !z.active : z.active)) })],
+  ['GET', /^\/zones\/([^/]+)$/, ([id]) => {
+    const z = zone(id)
+    if (!z) throw new ApiError(404, 'NOT_FOUND', 'Zone not found')
+    return { ...z, latest: state.predictions[z.id] }
+  }],
+  ['GET', /^\/zones\/([^/]+)\/timeseries$/, ([id], q) => timeseries(zone(id).id, Number(q.hours || 6))],
+  ['GET', /^\/alerts$/, (_m, q) => {
+    const ids = state.subs.map((s) => s.zone_id)
+    const items = state.warnings.filter((w) => w.status === 'sent' && (role() === 'admin' || ids.includes(w.zone_id))).map(warningOut)
+    return page(items, q)
+  }],
+  ['GET', /^\/logs$/, (_m, q) => page(state.logs.filter((l) => l.category === 'alert' && state.subs.some((s) => s.zone_id === l.meta?.zone_id)), q)],
+  ['POST', /^\/admin\/zones$/, (_m, _q, b) => {
+    requireAdmin()
+    const z = { id: `z${Date.now()}`, ...b }
+    state.zones.push(z)
+    state.predictions[z.id] = { ts: iso(Date.now()), zone_id: z.id, level: 'GREEN', rain_rate_max: 0, eta_min: null, p_ml: 0.05, explanation: { rule: null, rules_fired: [], top_features: [] } }
+    log('admin', `zone created: ${z.name}`)
+    return z
+  }],
+  ['PATCH', /^\/admin\/zones\/([^/]+)$/, ([id], _q, b) => {
+    requireAdmin()
+    const z = zone(id)
+    Object.assign(z, b)
+    log('admin', `zone updated: ${z.name}`)
+    return z
+  }],
+  ['DELETE', /^\/admin\/zones\/([^/]+)$/, ([id]) => {
+    requireAdmin()
+    const z = zone(id)
+    z.active = false
+    log('admin', `zone deactivated: ${z.name}`)
+    return z
+  }],
+  ['GET', /^\/admin\/warnings$/, (_m, q) => {
+    requireAdmin()
+    return { items: state.warnings.filter((w) => !q.status || w.status === q.status).map(warningOut) }
+  }],
+  ['POST', /^\/admin\/warnings$/, (_m, _q, b) => {
+    requireAdmin()
+    const w = { id: `w${Date.now()}`, zone_id: b.zone_id, level: b.level, status: 'draft', source: 'manual', message_en: b.message_en || null, message_ms: b.message_ms || null, created_by: 'admin_demo', created_at: iso(Date.now()), sent_at: null, expires_at: ago(-(b.expires_in_min || 120)), telegram_message_id: null }
+    state.warnings.unshift(w)
+    log('admin', `manual ${b.level} warning drafted`)
+    return w
+  }],
+  ['PATCH', /^\/admin\/warnings\/([^/]+)$/, ([id], _q, b) => {
+    requireAdmin()
+    const w = state.warnings.find((x) => x.id === id)
+    Object.assign(w, { message_en: b.message_en, message_ms: b.message_ms })
+    return warningOut(w)
+  }],
+  ['POST', /^\/admin\/warnings\/([^/]+)\/generate-text$/, async ([id]) => {
+    requireAdmin()
+    await delay(900)
+    const w = state.warnings.find((x) => x.id === id)
+    const p = state.predictions[w.zone_id]
+    const rate = Math.round(p.rain_rate_max ?? 0)
+    Object.assign(w, w.level === 'RED'
+      ? { message_en: `Intense rain (~${rate} mm/h) expected in ~${p.eta_min ?? 20} min. Avoid underpasses and low roads.`, message_ms: `Hujan lebat (~${rate} mm/j) dijangka dalam ~${p.eta_min ?? 20} minit. Elakkan laluan bawah tanah.` }
+      : { message_en: `Heavy rain (~${rate} mm/h) possible in ~${p.eta_min ?? 30} min. Drive slowly and avoid flood-prone roads.`, message_ms: `Hujan lebat (~${rate} mm/j) mungkin dalam ~${p.eta_min ?? 30} minit. Pandu perlahan.` })
+    return { ...warningOut(w), fallback: false }
+  }],
+  ['POST', /^\/admin\/warnings\/([^/]+)\/approve$/, async ([id]) => {
+    requireAdmin()
+    await delay(600)
+    const w = state.warnings.find((x) => x.id === id)
+    Object.assign(w, { status: 'sent', sent_at: iso(Date.now()), last_broadcast_at: iso(Date.now()), approved_by: 'admin_demo', telegram_message_id: 4500 + Math.floor(Math.random() * 99) })
+    log('alert', `${w.level} sent for ${zone(w.zone_id).name}`, { zone_id: w.zone_id })
+    return { id: w.id, status: w.status, telegram_message_id: w.telegram_message_id, sent_at: w.sent_at }
+  }],
+  ['POST', /^\/admin\/warnings\/([^/]+)\/cancel$/, ([id]) => {
+    requireAdmin()
+    const w = state.warnings.find((x) => x.id === id)
+    w.status = 'cancelled'
+    log('admin', `warning cancelled: ${zone(w.zone_id).name}`)
+    return warningOut(w)
+  }],
+  ['POST', /^\/admin\/warnings\/([^/]+)\/rebroadcast$/, ([id]) => {
+    requireAdmin()
+    const w = state.warnings.find((x) => x.id === id)
+    if (Date.now() - new Date(w.last_broadcast_at || w.sent_at).getTime() < 5 * 60000) {
+      throw new ApiError(429, 'RATE_LIMITED', 'Re-broadcast allowed once every 5 min')
+    }
+    w.last_broadcast_at = iso(Date.now())
+    return warningOut(w)
+  }],
+  ['GET', /^\/admin\/logs$/, (_m, q) => {
+    requireAdmin()
+    return page(state.logs.filter((l) => (!q.category || l.category === q.category) && (!q.severity || l.severity === q.severity) && (!q.q || l.message.toLowerCase().includes(q.q.toLowerCase()))), q)
+  }],
+  ['GET', /^\/admin\/runs$/, () => (requireAdmin(), { items: state.runs })],
+  ['GET', /^\/admin\/settings$/, () => (requireAdmin(), state.settings)],
+  ['PATCH', /^\/admin\/settings$/, (_m, _q, b) => {
+    requireAdmin()
+    const next = { ...state.settings, ...b, thresholds: { ...state.settings.thresholds, ...(b.thresholds || {}) } }
+    const t = next.thresholds
+    if (t.amber_rate_mmh >= t.red_rate_mmh || t.amber_p >= t.red_p) throw new ApiError(422, 'VALIDATION_ERROR', 'thresholds: amber must be less than red')
+    state.settings = next
+    log('admin', 'settings updated', { fields: Object.keys(b) })
+    return next
+  }],
+  ['GET', /^\/admin\/users$/, () => ({ items: [{ id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', role: role() }] })],
+  ['GET', /^\/reports$/, () => ({ items: state.reports.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'content_md'))) })],
+  ['POST', /^\/reports$/, (_m, _q, b) => {
+    const r = { id: `r${Date.now()}`, ...b, created_by: 'user_demo', created_at: iso(Date.now()), status: 'generating', content_md: null }
+    state.reports.unshift(r)
+    setTimeout(() => Object.assign(r, { status: 'ready', content_md: REPORT_MD }), 2500)
+    return { id: r.id, status: 'generating' }
+  }],
+  ['GET', /^\/reports\/([^/]+)$/, ([id]) => state.reports.find((r) => r.id === id)],
+  ['GET', /^\/reports\/([^/]+)\/download$/, ([id], q) => {
+    const r = state.reports.find((x) => x.id === id)
+    return q.format === 'csv'
+      ? 'zone,runs,amber_runs,red_runs,alerts_sent,peak_rain_rate_mmh,peak_p_ml\nCity of Elmina,1008,14,6,1,38.4,0.81\n'
+      : r.content_md
+  }],
+  ['POST', /^\/agent\/chat$/, async (_m, _q, b) => {
+    await delay(1100)
+    return { conversation_id: b.conversation_id || 'c-demo', model: 'gemini-flash (mock)', ...chatReply(b.message) }
+  }],
+]
+
+export async function mockFetch(method, path, query, body) {
+  await delay(150)
+  for (const [m, re, handler] of routes) {
+    const match = m === method && path.match(re)
+    if (match) return structuredClone(await handler(match.slice(1), query, body))
+  }
+  throw new ApiError(404, 'NOT_FOUND', `Mock has no route for ${method} ${path}`)
+}

@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# ML data (large, re-downloadable)
+ml/data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Internal docs (kept local only)
+docs/
+
+# Other secret material
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+secrets.*
+.secrets/
+.netlify/

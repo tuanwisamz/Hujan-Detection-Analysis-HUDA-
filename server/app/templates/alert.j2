@@ -1,0 +1,38 @@
+{#- Telegram alert (api-spec "Telegram Message Format"). Used for every message;
+    message_en / message_ms come from the Alert Writer, or the fallback text below. -#}
+{%- set icon = {"RED": "🔴", "AMBER": "🟠", "GREEN": "🟢"}[level] -%}
+{%- set rate = rain_rate_max|round|int if rain_rate_max is not none else none -%}
+{%- if cancelled -%}
+❌ CANCELLED · {{ zone }}
+EN: The earlier {{ level }} warning for {{ zone }} has been cancelled. Please disregard it.
+BM: Amaran {{ level }} sebelum ini untuk {{ zone }} telah dibatalkan. Sila abaikan.
+{%- else -%}
+{{ icon }} {{ "ALL CLEAR" if all_clear else level }} · {{ zone }}
+{% if message_en and message_ms -%}
+EN: {{ message_en }}
+BM: {{ message_ms }}
+{%- elif all_clear -%}
+EN: Heavy rain has eased. No significant rain expected in the next 3 h. Take care on wet roads.
+BM: Hujan lebat telah reda. Tiada hujan ketara dijangka dalam 3 jam. Berhati-hati di jalan basah.
+{%- elif level == "RED" -%}
+{%- if rate is none -%}
+EN: Intense rain likely in the next 3 h. Flash floods likely in low-lying roads. Avoid underpasses; move vehicles to higher ground.
+BM: Hujan lebat berkemungkinan dalam 3 jam. Banjir kilat mungkin berlaku. Elakkan laluan bawah tanah; alihkan kenderaan ke tempat tinggi.
+{%- elif eta_min == 0 -%}
+EN: Intense rain (~{{ rate }} mm/h) is falling now. Flash floods likely in low-lying roads. Avoid underpasses; move vehicles to higher ground.
+BM: Hujan lebat (~{{ rate }} mm/j) sedang turun. Banjir kilat mungkin berlaku. Elakkan laluan bawah tanah; alihkan kenderaan ke tempat tinggi.
+{%- else -%}
+EN: Intense rain (~{{ rate }} mm/h) expected in ~{{ eta_min }} min. Flash floods likely in low-lying roads. Avoid underpasses; move vehicles to higher ground.
+BM: Hujan lebat (~{{ rate }} mm/j) dijangka dalam ~{{ eta_min }} minit. Banjir kilat mungkin berlaku. Elakkan laluan bawah tanah; alihkan kenderaan ke tempat tinggi.
+{%- endif -%}
+{%- else -%}
+{%- if rate is none or eta_min is none -%}
+EN: Heavy rain possible in the next 3 h. Localised ponding likely. Drive slowly and avoid flood-prone roads.
+BM: Hujan lebat mungkin berlaku dalam 3 jam. Air bertakung setempat mungkin berlaku. Pandu perlahan dan elakkan jalan mudah banjir.
+{%- else -%}
+EN: Heavy rain (~{{ rate }} mm/h) possible in ~{{ eta_min }} min. Localised ponding likely. Drive slowly and avoid flood-prone roads.
+BM: Hujan lebat (~{{ rate }} mm/j) mungkin dalam ~{{ eta_min }} minit. Air bertakung setempat mungkin berlaku. Pandu perlahan dan elakkan jalan mudah banjir.
+{%- endif -%}
+{%- endif %}
+{%- endif %}
+Updated {{ updated_myt }} MYT · {{ url }}
