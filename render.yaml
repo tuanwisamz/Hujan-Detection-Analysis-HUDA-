@@ -1,0 +1,58 @@
+# Render Blueprint: New → Blueprint → pick this repo. Creates both services.
+# Values marked sync: false are asked for once in the Render dashboard (never commit them).
+services:
+  # Backend (FastAPI, Docker). URL: https://huda-api.onrender.com
+  - type: web
+    name: huda-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CLERK_JWKS_URL
+        sync: false
+      - key: CLERK_ISSUER
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: PUBLIC_SITE_URL
+        sync: false
+
+  # Frontend (Vite static site). URL: https://huda-web.onrender.com
+  - type: web
+    name: huda-web
+    runtime: static
+    rootDir: client
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    # Render ignores public/_redirects; this rewrite makes deep links like /app/live work.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_USE_MOCKS
+        value: "false"
+      - key: VITE_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_API_BASE_URL
+        sync: false

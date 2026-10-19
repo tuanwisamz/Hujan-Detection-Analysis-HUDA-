@@ -18,4 +18,5 @@ ENV MODEL_PATH=/app/models/lgbm_v1.txt \
     RADAR_CACHE_DIR=/tmp/huda_radar \
     PYTHONUNBUFFERED=1
 EXPOSE 7860
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860", "--proxy-headers"]
+# Render sets $PORT; HF Spaces doesn't, so fall back to 7860.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860} --proxy-headers --forwarded-allow-ips='*'"]
