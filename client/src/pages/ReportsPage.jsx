@@ -1,6 +1,6 @@
 import { Download, FileText, Printer } from 'lucide-react'
 import { useState } from 'react'
-import { Button, Dialog, EmptyState, ErrorNote, Field, inputClass, Loading, Page, useToast } from '../components/ui'
+import { Button, Dialog, EmptyState, ErrorNote, Field, inputClass, Loading, MultiSelect, Page, useToast } from '../components/ui'
 import { useApiMutation, useReport, useReports, useZones } from '../hooks/queries'
 import { api, download } from '../lib/api'
 import { useT } from '../lib/i18n'
@@ -97,22 +97,21 @@ export default function ReportsPage() {
 
   return (
     <Page title={t('reports.title')} intro={t('reports.intro')}>
-      <form onSubmit={submit} className="mb-6 grid gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end">
+      <form onSubmit={submit} className="mb-6 grid gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
         <Field label={t('reports.from')}>
           <input type="datetime-local" required value={from} onChange={(e) => setFrom(e.target.value)} className={inputClass} />
         </Field>
         <Field label={t('reports.to')}>
           <input type="datetime-local" required value={to} min={from} onChange={(e) => setTo(e.target.value)} className={inputClass} />
         </Field>
-        <Field label={t('reports.zones')}>
-          <select multiple value={zoneIds} onChange={(e) => setZoneIds([...e.target.selectedOptions].map((o) => o.value))} className={`${inputClass} h-24 py-1`}>
-            {(zones.data?.items || []).map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <MultiSelect
+          label={t('reports.zones')}
+          options={(zones.data?.items || []).map((z) => ({ value: z.id, label: z.name }))}
+          value={zoneIds}
+          onChange={setZoneIds}
+          allLabel={t('reports.allZones')}
+          countLabel={(n) => t('reports.zonesCount', { n })}
+        />
         <Button type="submit" busy={create.isPending}>
           {t('reports.generate')}
         </Button>

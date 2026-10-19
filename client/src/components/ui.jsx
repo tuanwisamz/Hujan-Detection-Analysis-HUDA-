@@ -1,5 +1,5 @@
-import { LoaderCircle, X } from 'lucide-react'
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { ChevronDown, LoaderCircle, X } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
 import { useT } from '../lib/i18n'
 
 // Small shared UI pieces. Primary buttons are filled, secondary outlined (spec §10.1 Affordances).
@@ -37,6 +37,79 @@ export function Field({ label, hint, error, children, id }) {
 
 export const inputClass =
   'block min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base text-ink placeholder:text-muted/70 focus:border-primary'
+
+/**
+ * Dropdown of checkboxes, sized like the other inputs. An empty selection means "all":
+ * the first row (allLabel) clears it. Escape or a click outside closes the menu.
+ */
+export function MultiSelect({ label, options, value, onChange, allLabel, countLabel }) {
+  const id = useId()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const buttonRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => !ref.current?.contains(e.target) && setOpen(false)
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const toggle = (v) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v])
+  const chosen = options.filter((o) => value.includes(o.value))
+  const summary = !chosen.length ? allLabel : chosen.length === 1 ? chosen[0].label : countLabel(chosen.length)
+  const row = 'flex min-h-10 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-paper'
+
+  return (
+    <div ref={ref} className="relative">
+      <span id={`${id}-label`} className="mb-1 block text-sm font-semibold">
+        {label}
+      </span>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-labelledby={`${id}-label ${id}-value`}
+        aria-expanded={open}
+        aria-controls={`${id}-menu`}
+        onClick={() => setOpen((o) => !o)}
+        className={`${inputClass} flex items-center justify-between gap-2 text-left`}
+      >
+        <span id={`${id}-value`} className="truncate">
+          {summary}
+        </span>
+        <ChevronDown size={16} aria-hidden="true" className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div
+          id={`${id}-menu`}
+          role="group"
+          aria-labelledby={`${id}-label`}
+          className="absolute z-20 mt-1 max-h-72 w-full min-w-56 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-lg"
+        >
+          <label className={`${row} border-b border-line font-semibold`}>
+            <input type="checkbox" checked={!value.length} onChange={() => onChange([])} className="size-4 accent-primary" />
+            {allLabel}
+          </label>
+          {options.map((o) => (
+            <label key={o.value} className={row}>
+              <input type="checkbox" checked={value.includes(o.value)} onChange={() => toggle(o.value)} className="size-4 accent-primary" />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Page({ title, intro, actions, children }) {
   return (
