@@ -15,7 +15,7 @@ BM: {{ message_ms }}
 EN: Heavy rain has eased. No significant rain expected in the next 3 h. Take care on wet roads.
 BM: Hujan lebat telah reda. Tiada hujan ketara dijangka dalam 3 jam. Berhati-hati di jalan basah.
 {%- elif level == "RED" -%}
-{%- if rate is none -%}
+{%- if rate is none or eta_min is none -%}
 EN: Intense rain likely in the next 3 h. Flash floods likely in low-lying roads. Avoid underpasses; move vehicles to higher ground.
 BM: Hujan lebat berkemungkinan dalam 3 jam. Banjir kilat mungkin berlaku. Elakkan laluan bawah tanah; alihkan kenderaan ke tempat tinggi.
 {%- elif eta_min == 0 -%}

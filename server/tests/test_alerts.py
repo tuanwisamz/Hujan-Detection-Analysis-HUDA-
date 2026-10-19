@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+
+import httpx
+import pytest
 
 from app.models import AppSettings, Level
-from app.services import alerts
+from app.services import alerts, telegram
 
 NOW = datetime(2026, 10, 18, 6, 40, tzinfo=timezone.utc)
 S = AppSettings()
@@ -91,3 +95,19 @@ def test_llm_text_used_only_if_it_fits():
     assert "EN: Short EN." in short
     long = alerts.render_message(ZONE, "RED", None, "x" * 400, "y" * 400, now=NOW)
     assert "EN: Intense rain" in long  # fell back to the template
+
+
+def test_red_fallback_without_eta_never_prints_none():
+    # RED from p_ml or a severe MET warning while radar is still dry: no rate/ETA to quote.
+    for pred in ({"rain_rate_max": 0.0, "eta_min": None}, {"rain_rate_max": 2.0, "eta_min": None}):
+        text = alerts.render_message(ZONE, "RED", pred, now=NOW)
+        assert "None" not in text and "Intense rain likely in the next 3 h" in text
+
+
+def test_telegram_network_error_is_a_telegram_error(monkeypatch):
+    def timeout(*a, **k):
+        raise httpx.ReadTimeout("timed out")
+    monkeypatch.setattr(telegram, "get_settings", lambda: SimpleNamespace(telegram_bot_token="t"))
+    monkeypatch.setattr(telegram.httpx, "post", timeout)
+    with pytest.raises(telegram.TelegramError, match="ReadTimeout"):
+        telegram.send(123, "hi")

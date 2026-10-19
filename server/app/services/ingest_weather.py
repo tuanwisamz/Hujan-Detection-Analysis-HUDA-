@@ -3,6 +3,7 @@
 import logging
 import math
 import re
+import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -24,6 +25,13 @@ FLOOD_RADIUS_KM = 15.0
 FLOOD_MAX_AGE = timedelta(hours=6)
 SEVERE_WORDS = ("danger", "severe", "bahaya", "teruk")
 
+# Live Open-Meteo results are reused across 10-min runs: the model updates hourly, and
+# shared egress IPs (Render free) hit its per-IP limits (429). Backfill is never cached.
+OPEN_METEO_TTL = timedelta(minutes=30)
+OPEN_METEO_STALE_MAX = timedelta(hours=3)   # on failure, serve the last good result up to this old
+OPEN_METEO_RETRY_S = 10.0
+_open_meteo_cache: dict[tuple, tuple[datetime, dict]] = {}
+
 
 def _parse_hourly(loc: dict, variables: list[str]) -> dict:
     hourly = loc.get("hourly", {})
@@ -36,9 +44,9 @@ def fetch_open_meteo(zones: list[dict], at: datetime | None = None, model: str |
                      variables: list[str] | None = None) -> dict[str, dict]:
     """One multi-coordinate request for all zones -> {zone_id: hourly series (UTC)}.
 
-    Live: forecast API with past_days=1 (gives the 24 h accumulation, D8).
-    Backfill (`at` set): Historical Forecast API around that time, so features use
-    what the model forecast then, not what happened.
+    Live: forecast API with past_days=1 (gives the 24 h accumulation, D8), cached for
+    OPEN_METEO_TTL. Backfill (`at` set): Historical Forecast API around that time, so
+    features use what the model forecast then, not what happened.
     """
     check_fault("open_meteo")
     if not zones:
@@ -58,9 +66,43 @@ def fetch_open_meteo(zones: list[dict], at: datetime | None = None, model: str |
         url = HISTORICAL_FORECAST_URL
         params |= {"start_date": (at - timedelta(days=1)).date().isoformat(),
                    "end_date": (at + timedelta(days=1)).date().isoformat()}
-    r = httpx.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    data = r.json()
+    if at is not None:
+        return _parse_locations(zones, _get_open_meteo(url, params), variables)
+
+    key = tuple(sorted(params.items()))
+    now = datetime.now(timezone.utc)
+    hit = _open_meteo_cache.get(key)
+    if hit and now - hit[0] < OPEN_METEO_TTL:
+        return hit[1]
+    try:
+        result = _parse_locations(zones, _get_open_meteo(url, params), variables)
+    except httpx.HTTPError as exc:
+        if hit and now - hit[0] < OPEN_METEO_STALE_MAX:
+            log.warning("Open-Meteo failed (%s); using result from %s", exc, hit[0].isoformat())
+            return hit[1]
+        raise
+    _open_meteo_cache[key] = (now, result)
+    return result
+
+
+def _get_open_meteo(url: str, params: dict):
+    """GET with one retry on 429; errors carry Open-Meteo's own reason (e.g. which limit)."""
+    for attempt in range(2):
+        r = httpx.get(url, params=params, timeout=20)
+        if r.status_code == 429 and attempt == 0:
+            time.sleep(OPEN_METEO_RETRY_S)
+            continue
+        if r.is_error:
+            try:
+                reason = r.json().get("reason") or r.reason_phrase
+            except ValueError:
+                reason = r.reason_phrase
+            raise httpx.HTTPStatusError(f"Open-Meteo HTTP {r.status_code}: {reason}",
+                                        request=r.request, response=r)
+        return r.json()
+
+
+def _parse_locations(zones: list[dict], data, variables: list[str] | None) -> dict[str, dict]:
     locations = data if isinstance(data, list) else [data]
     return {z["id"]: _parse_hourly(loc, variables or HOURLY_VARS) for z, loc in zip(zones, locations)}
 

@@ -1,6 +1,9 @@
 import math
 from datetime import datetime, timedelta, timezone
 
+import httpx
+import pytest
+
 from app.services import features, ingest_weather
 
 T0 = datetime(2026, 10, 18, 0, tzinfo=timezone.utc)
@@ -102,3 +105,62 @@ def test_flood_stations_by_distance_level_and_freshness():
     normal = {**near, "water_level_indicator": "NORMAL"}
     far = {**near, "latitude": 4.0}
     assert ingest_weather.match_flood([stale, normal, far], zones, now) == {}
+
+
+# ---- Open-Meteo cache / 429 handling ----
+
+class FakeResponse:
+    def __init__(self, status, body):
+        self.status_code, self._body = status, body
+        self.is_error = status >= 400
+        self.reason_phrase = "Too Many Requests" if status == 429 else "OK"
+        self.request = httpx.Request("GET", ingest_weather.FORECAST_URL)
+
+    def json(self):
+        return self._body
+
+
+OM_ZONES = [{"id": "z1", "lat": 3.18, "lon": 101.49}]
+OM_BODY = {"hourly": {"time": ["2026-10-18T00:00"], "precipitation": [1.5]}}
+
+
+def fake_open_meteo(monkeypatch, responses):
+    calls = []
+    def get(url, params=None, timeout=None):
+        calls.append(url)
+        return responses.pop(0)
+    monkeypatch.setattr(ingest_weather.httpx, "get", get)
+    monkeypatch.setattr(ingest_weather.time, "sleep", lambda s: None)
+    monkeypatch.setattr(ingest_weather, "_open_meteo_cache", {})
+    return calls
+
+
+def test_open_meteo_live_result_is_cached(monkeypatch):
+    calls = fake_open_meteo(monkeypatch, [FakeResponse(200, OM_BODY)])
+    first = ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+    again = ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+    assert first == again and first["z1"]["precipitation"] == [1.5] and len(calls) == 1
+
+
+def test_open_meteo_retries_429_once(monkeypatch):
+    calls = fake_open_meteo(monkeypatch, [FakeResponse(429, {"reason": "Minutely limit"}), FakeResponse(200, OM_BODY)])
+    assert ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])["z1"]["precipitation"] == [1.5]
+    assert len(calls) == 2
+
+
+def test_open_meteo_serves_stale_result_on_failure_then_gives_up(monkeypatch):
+    fake_open_meteo(monkeypatch, [FakeResponse(200, OM_BODY)] + [FakeResponse(429, {"reason": "Daily limit"})] * 4)
+    good = ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+    key, (ts, result) = next(iter(ingest_weather._open_meteo_cache.items()))
+    ingest_weather._open_meteo_cache[key] = (ts - timedelta(hours=1), result)    # past TTL, within stale max
+    assert ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"]) == good
+    ingest_weather._open_meteo_cache[key] = (ts - timedelta(hours=4), result)    # too old to serve
+    with pytest.raises(httpx.HTTPStatusError, match="Daily limit"):
+        ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+
+
+def test_open_meteo_backfill_is_not_cached(monkeypatch):
+    calls = fake_open_meteo(monkeypatch, [FakeResponse(200, OM_BODY), FakeResponse(200, OM_BODY)])
+    for _ in range(2):
+        ingest_weather.fetch_open_meteo(OM_ZONES, at=T0, variables=["precipitation"])
+    assert len(calls) == 2 and ingest_weather._open_meteo_cache == {}

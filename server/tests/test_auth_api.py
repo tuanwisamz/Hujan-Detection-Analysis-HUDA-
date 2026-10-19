@@ -107,3 +107,16 @@ def test_rate_limit_window():
     assert exc.value.status == 429
     limit.hit("u", now=61)  # window slid
     limit.hit("other", now=2)  # per user
+
+
+def test_editing_one_language_keeps_the_other(client, monkeypatch):
+    from app.api import admin
+    monkeypatch.setattr(admin, "_load", lambda wid: ({"id": wid, "status": "draft"}, {"id": "z1", "name": "Elmina"}))
+    monkeypatch.setattr(admin, "_audit", lambda *a, **k: None)
+    written = {}
+    monkeypatch.setattr(repo, "update_warning", lambda wid, fields: written.update(fields) or {"id": wid, **fields})
+    headers = {"Authorization": f"Bearer {token(sub='admin_1')}"}
+    r = client.patch("/api/v1/admin/warnings/w1", headers=headers, json={"message_en": "Fixed text."})
+    assert r.status_code == 200 and written == {"message_en": "Fixed text."}
+    empty = client.patch("/api/v1/admin/warnings/w1", headers=headers, json={})
+    assert empty.status_code == 422

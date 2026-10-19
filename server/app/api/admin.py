@@ -90,7 +90,10 @@ def edit_warning_text(warning_id: str, body: WarningTextPatch, user: User = Depe
     w, z = _load(warning_id)
     if w["status"] not in ("draft", "pending_approval"):
         raise ApiError(409, f"Warning is {w['status']}; only draft or pending text can be edited")
-    updated = repo.update_warning(warning_id, body.model_dump())
+    fields = body.model_dump(exclude_unset=True)  # editing one language must not clear the other
+    if not fields:
+        raise ApiError(422, "Send message_en and/or message_ms")
+    updated = repo.update_warning(warning_id, fields)
     _audit(user, f"warning text edited: {z['name']}", zone_id=z["id"], warning_id=warning_id)
     return updated
 

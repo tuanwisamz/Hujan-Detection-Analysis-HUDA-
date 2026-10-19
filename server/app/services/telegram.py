@@ -20,7 +20,11 @@ def _api(method: str, payload: dict, retries: int = 2) -> dict:
         raise TelegramError("TELEGRAM_BOT_TOKEN is not set")
     url = f"https://api.telegram.org/bot{token}/{method}"
     for attempt in range(retries + 1):
-        r = httpx.post(url, json=payload, timeout=15)
+        try:
+            r = httpx.post(url, json=payload, timeout=15)
+        except httpx.HTTPError as exc:
+            # Not retried: a timed-out sendMessage may have been delivered already.
+            raise TelegramError(f"network error: {exc.__class__.__name__}: {exc}") from exc
         data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
         if r.status_code == 429 and attempt < retries:
             time.sleep(min(int(data.get("parameters", {}).get("retry_after", 3)), 30))
