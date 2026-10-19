@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # RainViewer tile options: {smooth}_{snow}. 0_0 decodes cleanly (implementation-plan §5.3).
     rainviewer_decode_options: str = "0_0"
     rainviewer_display_options: str = "1_1"
+    # "auto" = pySTEPS if installed, else global shift. "global_shift" never loads pySTEPS (512 MB hosts).
+    nowcast_method: str = "auto"
 
     # Dev-only failure drills, e.g. "open_meteo,gemini" (implementation-plan §6).
     fault_inject: str = ""

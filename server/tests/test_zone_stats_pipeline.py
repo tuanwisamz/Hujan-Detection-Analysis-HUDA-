@@ -1,6 +1,7 @@
 """Zone stats, nowcast fallback, and the pure pipeline core on the synthetic storm (D2)."""
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -73,6 +74,15 @@ def test_synthetic_storm_moves_east_and_nowcast_follows():
     assert len(forecast) == 6 and method in ("pysteps_lk", "global_shift")
     f_cols = [np.nanargmax(np.nan_to_num(g.dbz, nan=-1)) % g.dbz.shape[1] for g in forecast]
     assert f_cols[0] > cols[-1]
+
+
+def test_nowcast_method_global_shift_skips_pysteps(monkeypatch):
+    def no_pysteps(*_):
+        raise AssertionError("pySTEPS must not run when NOWCAST_METHOD=global_shift")
+    monkeypatch.setattr(nowcast, "_pysteps", no_pysteps)
+    monkeypatch.setattr(nowcast, "get_settings", lambda: SimpleNamespace(nowcast_method="global_shift"))
+    forecast, method = nowcast.nowcast(synthetic.storm_grids(NOW))
+    assert method == "global_shift" and len(forecast) == 6
 
 
 def test_synthetic_storm_turns_elmina_red_end_to_end():

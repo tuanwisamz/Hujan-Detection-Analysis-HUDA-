@@ -36,6 +36,9 @@ services:
         sync: false
       - key: PUBLIC_SITE_URL
         sync: false
+      # pySTEPS runs out of memory on the free plan's 512 MB.
+      - key: NOWCAST_METHOD
+        value: global_shift
 
   # Frontend (Vite static site). URL: https://huda-web.onrender.com
   - type: web

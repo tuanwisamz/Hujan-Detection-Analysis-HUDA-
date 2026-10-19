@@ -4,6 +4,8 @@ Primary: pySTEPS Lucas–Kanade motion field + semi-Lagrangian extrapolation.
 Fallback (pySTEPS not installed, e.g. local Windows dev): one global motion vector
 from FFT phase correlation, then whole-field advection. Cruder, but keeps the
 pipeline and tests running anywhere. The method used is recorded per run.
+NOWCAST_METHOD=global_shift forces the fallback and never imports pySTEPS: on a
+512 MB host (Render free) pySTEPS runs out of memory.
 """
 
 import logging
@@ -11,6 +13,7 @@ from datetime import timedelta
 
 import numpy as np
 
+from ..config import get_settings
 from . import palette
 from .grid import DbzGrid
 
@@ -24,9 +27,13 @@ def nowcast(grids: list[DbzGrid], n_steps: int = 6) -> tuple[list[DbzGrid], str]
     if len(grids) < 2:
         raise ValueError("need at least 2 radar frames to nowcast")
     rates = np.stack([palette.dbz_to_rate(g.dbz) for g in grids])
-    try:
-        forecast, method = _pysteps(rates, n_steps), "pysteps_lk"
-    except ImportError:
+    forecast = None
+    if get_settings().nowcast_method != "global_shift":
+        try:
+            forecast, method = _pysteps(rates, n_steps), "pysteps_lk"
+        except ImportError:
+            pass
+    if forecast is None:
         forecast, method = _global_shift(rates, n_steps), "global_shift"
     last = grids[-1]
     out = [DbzGrid(last.ts + timedelta(minutes=STEP_MIN * (k + 1)), palette.rate_to_dbz(forecast[k]), last.bounds)
