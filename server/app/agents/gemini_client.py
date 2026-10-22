@@ -11,7 +11,7 @@ import logging
 import time
 from functools import lru_cache
 
-from ..config import check_fault, get_settings
+from ..config import InjectedFault, check_fault, get_settings
 from .. import repo
 
 log = logging.getLogger("huda")
@@ -49,7 +49,10 @@ def _key(*parts) -> str:
 def generate(contents, *, system: str, model: str | None = None, json_schema: dict | None = None,
              tools: list | None = None, agent: str = "agent", cache: bool = True):
     """One generate_content call with timeout, retries, cache and logging. Returns the response."""
-    check_fault("gemini")
+    try:
+        check_fault("gemini")
+    except InjectedFault as exc:  # the drill stands in for a 429: callers fall back the same way
+        raise GeminiUnavailable(str(exc)) from exc
     types = _types()
     model = model or get_settings().gemini_model
     key = _key(model, system, contents if isinstance(contents, str) else repr(contents), json_schema, repr(tools))
