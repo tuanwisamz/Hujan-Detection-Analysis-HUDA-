@@ -200,6 +200,20 @@ class ZoneIn(BaseModel):
     active: bool = True
 
 
+class StationPatch(BaseModel):
+    """Admin correction of a JPS station (implementation-plan-v2 D21). lat+lon marks it verified."""
+    lat: float | None = Field(None, ge=1.0, le=7.5)
+    lon: float | None = Field(None, ge=99.0, le=105.0)
+    active: bool | None = None
+    note: str | None = Field(None, max_length=300)
+
+    @model_validator(mode="after")
+    def both_coords(self):
+        if (self.lat is None) != (self.lon is None):
+            raise ValueError("send lat and lon together")
+        return self
+
+
 class ZonePatch(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=120)
     slug: str | None = Field(None, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=80)

@@ -29,6 +29,7 @@ def zone_live(z: dict, p: dict | None, subscribed: bool) -> dict:
             "polygon": z.get("polygon"), "level": p.get("level"), "rain_rate_max": p.get("rain_rate_max"),
             "eta_min": p.get("eta_min"), "p_ml": p.get("p_ml"), "official_warning": p.get("official_warning"),
             "replay": bool((p.get("explanation") or {}).get("replay_of")),
+            "sensor_check": (p.get("explanation") or {}).get("sensor_check"),
             "subscribed": subscribed, "updated_at": p.get("ts")}
 
 

@@ -30,4 +30,5 @@ $$);
 select cron.schedule('huda-retention', '30 19 * * *', $$
   delete from radar_frames where ts < now() - interval '3 days';
   delete from predictions  where ts < now() - interval '90 days';
+  delete from sensor_readings where ts < now() - interval '30 days';
 $$);

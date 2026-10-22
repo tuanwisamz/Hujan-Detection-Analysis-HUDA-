@@ -95,18 +95,6 @@ def test_marine_bulletin_with_rain_words_is_ignored():
     assert ingest_weather.match_warnings([w], ZONES) == {}
 
 
-def test_flood_stations_by_distance_level_and_freshness():
-    now = datetime(2026, 10, 18, 6, 0, tzinfo=timezone.utc)
-    zones = [{"id": "elmina", "lat": 3.183, "lon": 101.486}]
-    near = {"station_name": "Sg. Buloh", "latitude": 3.20, "longitude": 101.50,
-            "water_level_indicator": "WARNING", "water_level_update_datetime": "2026-10-18 13:30:00"}
-    assert ingest_weather.match_flood([near], zones, now) == {"elmina": "River warning – Sg. Buloh"}
-    stale = {**near, "water_level_update_datetime": "2024-02-23 14:45:00"}
-    normal = {**near, "water_level_indicator": "NORMAL"}
-    far = {**near, "latitude": 4.0}
-    assert ingest_weather.match_flood([stale, normal, far], zones, now) == {}
-
-
 # ---- Open-Meteo cache / 429 handling ----
 
 class FakeResponse:

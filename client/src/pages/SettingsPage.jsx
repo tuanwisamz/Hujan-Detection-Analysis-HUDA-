@@ -169,7 +169,7 @@ function AdminSettings() {
       </Panel>
       <Panel title={t('settings.sources')}>
         <ul className="flex flex-wrap gap-2 text-sm">
-          {['radar', 'open_meteo', 'met_warnings', 'flood', 'nowcast', 'model'].map((k) => (
+          {['radar', 'open_meteo', 'met_warnings', 'infobanjir', 'nowcast', 'model'].map((k) => (
             <li key={k} className={`rounded-lg px-2.5 py-1 font-semibold ${sources[k] === 'failed' ? 'bg-level-red-soft text-level-red' : 'bg-paper'}`}>
               {k}: {sources[k] ?? '–'}
             </li>

@@ -120,3 +120,23 @@ def test_editing_one_language_keeps_the_other(client, monkeypatch):
     assert r.status_code == 200 and written == {"message_en": "Fixed text."}
     empty = client.patch("/api/v1/admin/warnings/w1", headers=headers, json={})
     assert empty.status_code == 422
+
+
+@pytest.mark.parametrize("method, path", [
+    ("get", "/api/v1/admin/sensors"),
+    ("patch", "/api/v1/admin/sensors/jps-rain:3717101"),
+])
+def test_sensor_routes_are_admin_only(client, method, path):
+    r = getattr(client, method)(path, headers={"Authorization": f"Bearer {token()}"}, **({"json": {}} if method == "patch" else {}))
+    assert r.status_code == 403
+
+
+def test_station_patch_needs_lat_and_lon_together(client, monkeypatch):
+    monkeypatch.setattr(repo, "get_station", lambda sid: {"id": sid, "name": "Bukit Fraser"})
+    saved = {}
+    monkeypatch.setattr(repo, "update_station", lambda sid, patch: saved.update(patch) or {"id": sid, **patch})
+    monkeypatch.setattr(repo, "log_event", lambda *a, **k: None)
+    headers = {"Authorization": f"Bearer {token(sub='admin_1')}"}
+    assert client.patch("/api/v1/admin/sensors/jps-rain:3717101", headers=headers, json={"lat": 3.7}).status_code == 422
+    r = client.patch("/api/v1/admin/sensors/jps-rain:3717101", headers=headers, json={"lat": 3.71, "lon": 101.74})
+    assert r.status_code == 200 and saved["location_quality"] == "verified" and saved["location_source"] == "admin"

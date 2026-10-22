@@ -201,3 +201,31 @@ Rain risk was concentrated in Petaling district this week. City of Elmina spent 
 | Bukit Jelutong | 1008 | 6 | 0 | 0 | 14.2 | 0.44 |
 
 _Weather radar by RainViewer · Weather data by Open-Meteo.com (CC BY 4.0) · MET Malaysia via data.gov.my_`
+
+export function seedSensors() {
+  const elmina = { id: 'z01', name: 'City of Elmina' }
+  const st = (id, kind, name, district, quality, source, dist, latest, extra = {}) => ({
+    id: `jps-${kind}:${id}`,
+    kind,
+    source: 'infobanjir',
+    station_code: id,
+    name,
+    district,
+    state: 'Selangor',
+    lat: 3.18 + dist / 200,
+    lon: 101.49,
+    location_quality: quality,
+    location_source: source,
+    active: true,
+    zones: [{ ...elmina, distance_km: dist, in_range: dist <= (kind === 'rain' ? 10 : 15) }],
+    latest: latest && { ts: ago(latest.age_min), fresh: latest.age_min <= 45, ...latest },
+    ...extra,
+  })
+  return [
+    st('3216001', 'rain', 'Kg. Kuang', 'Gombak', 'verified', 'datagovmy', 7.8, { rain_1h_mm: 24.5, rain_today_mm: 38, age_min: 12 }),
+    st('3115079', 'rain', 'Sg. Buloh', 'Petaling', 'grid', 'station_id', 4.2, { rain_1h_mm: 31.0, rain_today_mm: 44.5, age_min: 7 }),
+    st('3015090', 'rain', 'Subang', 'Petaling', 'verified', 'admin', 9.1, { rain_1h_mm: 8.0, rain_today_mm: 12, age_min: 92 }),
+    st('3115082', 'river', 'Sg. Buloh di Kg. Melayu', 'Petaling', 'verified', 'datagovmy', 5.5, { water_level_m: 6.21, indicator: 'ALERT', age_min: 20 }),
+    st('PASGYU1', 'river', 'Sg. Pasir Gayu', 'Petaling', 'grid', null, 12.0, null, { lat: null, lon: null }),
+  ]
+}

@@ -354,6 +354,56 @@ def get_report(report_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def station_key(kind: str, code: str) -> str:
+    return f"jps-{kind}:{code}"
+
+
+# ---- Sensors (implementation-plan-v2 §6.2) ----
+
+STATION_FIELDS = ("id,kind,source,station_code,name,district,state,lat,lon,location_quality,"
+                  "location_source,active,note,updated_at")
+
+
+def list_stations(kind: str | None = None) -> list[dict]:
+    q = sb().table("sensor_stations").select(STATION_FIELDS)
+    if kind:
+        q = q.eq("kind", kind)
+    return q.limit(5000).execute().data
+
+
+def get_station(station_id: str) -> dict | None:
+    rows = sb().table("sensor_stations").select(STATION_FIELDS).eq("id", station_id).limit(1).execute().data
+    return rows[0] if rows else None
+
+
+def add_stations(rows: list[dict]) -> None:
+    """Insert stations that don't exist yet; existing rows (and admin-checked locations) are kept."""
+    if rows:
+        sb().table("sensor_stations").upsert(rows, on_conflict="id", ignore_duplicates=True).execute()
+
+
+def update_station(station_id: str, patch: dict) -> dict | None:
+    rows = sb().table("sensor_stations").update(patch).eq("id", station_id).execute().data
+    return rows[0] if rows else None
+
+
+def insert_sensor_readings(rows: list[dict]) -> None:
+    for i in range(0, len(rows), 500):
+        sb().table("sensor_readings").upsert(rows[i:i + 500], on_conflict="station_id,ts",
+                                             ignore_duplicates=True).execute()
+
+
+def sensor_readings_since(station_ids: list[str], since: datetime) -> dict[str, list[dict]]:
+    """{station_id: [reading, …]} with ts parsed, for the given stations since `since`."""
+    out: dict[str, list[dict]] = {}
+    for i in range(0, len(station_ids), 150):
+        rows = (sb().table("sensor_readings").select("station_id,ts,rain_1h_mm,rain_today_mm,water_level_m,indicator")
+                .in_("station_id", station_ids[i:i + 150]).gte("ts", iso(since)).limit(10000).execute().data)
+        for r in rows:
+            out.setdefault(r["station_id"], []).append({**r, "ts": parse_ts(r["ts"])})
+    return out
+
+
 def list_reports(created_by: str | None, limit: int = 100) -> list[dict]:
     q = sb().table("reports").select("id,type,zone_ids,period_start,period_end,created_by,created_at,status")
     if created_by:

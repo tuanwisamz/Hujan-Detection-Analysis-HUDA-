@@ -1,7 +1,6 @@
-"""Open-Meteo forecast + data.gov.my MET/flood warnings (architecture.md §3 step 2)."""
+"""Open-Meteo forecast + data.gov.my MET warnings (architecture.md §3 step 2)."""
 
 import logging
-import math
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -20,9 +19,6 @@ FLOOD_WARNING_URL = "https://api.data.gov.my/flood-warning/"
 
 RAIN_WORDS = ("rain", "thunderstorm", "hujan", "ribut petir")
 MARINE_WORDS = ("sea", "laut", "waters", "perairan")
-FLOOD_LEVELS = ("WARNING", "DANGER")
-FLOOD_RADIUS_KM = 15.0
-FLOOD_MAX_AGE = timedelta(hours=6)
 SEVERE_WORDS = ("danger", "severe", "bahaya", "teruk")
 
 # Live Open-Meteo results are reused across 10-min runs: the model updates hourly, and
@@ -122,9 +118,10 @@ def fetch_met_warnings(now: datetime | None = None) -> list[dict]:
     return active
 
 
-def fetch_flood_warnings() -> list[dict]:
+def fetch_flood_warnings(limit: int = 2000) -> list[dict]:
+    """data.gov.my station list. Its readings are stale; only the coordinates are used (v2 D20)."""
     check_fault("flood")
-    r = httpx.get(FLOOD_WARNING_URL, params={"limit": 200}, timeout=15, follow_redirects=True)
+    r = httpx.get(FLOOD_WARNING_URL, params={"limit": limit}, timeout=30, follow_redirects=True)
     r.raise_for_status()
     data = r.json()
     return data if isinstance(data, list) else data.get("data", [])
@@ -179,31 +176,3 @@ def match_warnings(warnings: list[dict], zones: list[dict]) -> dict[str, dict]:
                     label = f"{title} – {z.get('district') or z.get('state')}"
                     matched[z["id"]] = {"severity": severity, "title": label}
     return matched
-
-
-def _km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    dlat, dlon = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-    return 12742 * math.asin(math.sqrt(a))
-
-
-def match_flood(flood: list[dict], zones: list[dict], now: datetime | None = None) -> dict[str, str]:
-    """River stations at WARNING/DANGER within 15 km of a zone, updated in the last 6 h.
-
-    Informational only (shown in the zone panel); doesn't change levels. Some
-    stations report stale readings for years, hence the freshness check.
-    """
-    now = now or datetime.now(timezone.utc)
-    out: dict[str, str] = {}
-    for f in flood:
-        indicator = str(f.get("water_level_indicator") or "").upper()
-        updated = _ts(f.get("water_level_update_datetime"))
-        if indicator not in FLOOD_LEVELS or updated is None or now - updated > FLOOD_MAX_AGE:
-            continue
-        lat, lon = f.get("latitude"), f.get("longitude")
-        if lat is None or lon is None:
-            continue
-        for z in zones:
-            if _km(z["lat"], z["lon"], float(lat), float(lon)) <= FLOOD_RADIUS_KM:
-                out.setdefault(z["id"], f"River {indicator.lower()} – {f.get('station_name', 'station')}")
-    return out

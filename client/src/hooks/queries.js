@@ -40,6 +40,16 @@ export const useAutomationActivity = () =>
     refetchInterval: 60000,
   })
 
+export const useSensors = (filters) =>
+  useQuery({
+    queryKey: ['sensors', filters],
+    queryFn: () =>
+      api('/admin/sensors', {
+        query: Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v !== false)),
+      }),
+    refetchInterval: 5 * 60000,
+  })
+
 export const useRuns = () => useQuery({ queryKey: ['runs'], queryFn: () => api('/admin/runs'), refetchInterval: 60000 })
 
 export const useReports = () =>

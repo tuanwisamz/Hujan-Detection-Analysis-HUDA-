@@ -129,6 +129,24 @@ export default function ZonePanel({ zoneId, onClose, thresholds }) {
               <p className="mt-0.5">{p.official_warning || t('zone.officialNone')}</p>
             </section>
 
+            {ex.sensor_check && (
+              <section className="mt-4">
+                <h3 className="text-sm font-semibold text-muted">{t('zone.ground')}</h3>
+                <p className="mt-0.5">{t(`zone.ground.${ex.sensor_check}`)}</p>
+                {z.sensors?.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 text-sm text-muted">
+                    {z.sensors.map((s) => (
+                      <li key={s.id || s.station}>
+                        {s.kind === 'rain'
+                          ? t('zone.ground.rain', { name: s.station, v: s.value, km: s.distance_km, age: s.age_min })
+                          : t('zone.ground.river', { name: s.station, state: t(`sensors.river.${s.indicator}`).toLowerCase(), km: s.distance_km, age: s.age_min })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
             <section className="mt-4">
               <h3 className="text-sm font-semibold text-muted">{t('zone.why')}</h3>
               {ex.rules_fired?.length ? (

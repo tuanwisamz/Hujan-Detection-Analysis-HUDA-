@@ -1,6 +1,6 @@
 // In-memory mock of the HUDA API (api-spec.md). Lets the frontend run with no backend:
 // VITE_USE_MOCKS=true. State resets on reload.
-import { ago, iso, REPORT_MD, seedLogs, seedPredictions, seedRuns, seedWarnings, SETTINGS, ZONES } from '../mocks/seed'
+import { ago, iso, REPORT_MD, seedLogs, seedPredictions, seedRuns, seedSensors, seedWarnings, SETTINGS, ZONES } from '../mocks/seed'
 import { ApiError } from './api'
 
 const state = {
@@ -10,6 +10,7 @@ const state = {
   logs: seedLogs(),
   runs: seedRuns(),
   settings: structuredClone(SETTINGS),
+  sensors: seedSensors(),
   subs: [{ zone_id: 'z01', min_level: 'AMBER' }, { zone_id: 'z02', min_level: 'AMBER' }],
   me: { id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', language: 'en', telegram_linked: false, onboarded: true },
   reports: [
@@ -72,6 +73,7 @@ const live = (z) => {
     p_ml: p.p_ml ?? null,
     official_warning: p.official_warning ?? null,
     replay: false,
+    sensor_check: p.explanation?.sensor_check ?? null,
     subscribed: state.subs.some((s) => s.zone_id === z.id),
     updated_at: p.ts ?? null,
   }
@@ -168,7 +170,7 @@ const routes = [
   ['GET', /^\/zones\/([^/]+)$/, ([id]) => {
     const z = zone(id)
     if (!z) throw new ApiError(404, 'NOT_FOUND', 'Zone not found')
-    return { ...z, latest: state.predictions[z.id] }
+    return { ...z, latest: state.predictions[z.id], sensors: state.predictions[z.id]?.explanation?.sensors || [] }
   }],
   ['GET', /^\/zones\/([^/]+)\/timeseries$/, ([id], q) => timeseries(zone(id).id, Number(q.hours || 6))],
   ['GET', /^\/alerts$/, (_m, q) => {
@@ -254,6 +256,24 @@ const routes = [
   ['GET', /^\/admin\/logs$/, (_m, q) => {
     requireAdmin()
     return page(state.logs.filter((l) => (!q.category || l.category === q.category) && (!q.severity || l.severity === q.severity) && (!q.q || l.message.toLowerCase().includes(q.q.toLowerCase()))), q)
+  }],
+  ['GET', /^\/admin\/sensors$/, (_m, q) => {
+    requireAdmin()
+    let items = state.sensors
+    if (q.kind) items = items.filter((s) => s.kind === q.kind)
+    if (q.zone_id) items = items.filter((s) => s.zones.some((z) => z.id === q.zone_id))
+    if (q.needs_location) items = items.filter((s) => s.location_quality !== 'verified' && s.zones.length)
+    if (q.stale) items = items.filter((s) => !s.latest?.fresh)
+    const pages = { 'rain:SEL': 'ok', 'river:SEL': 'ok', 'rain:WLH': 'ok', 'river:WLH': 'ok', 'rain:NSN': 'ok', 'river:NSN': 'ok', 'rain:JHR': 'failed', 'river:JHR': 'ok' }
+    return { sources: { status: 'partial', pages, checked_at: ago(4) }, items }
+  }],
+  ['PATCH', /^\/admin\/sensors\/([^/]+)$/, ([id], _q, b) => {
+    requireAdmin()
+    const s = state.sensors.find((x) => x.id === decodeURIComponent(id))
+    if (!s) throw new ApiError(404, 'NOT_FOUND', 'Station not found')
+    Object.assign(s, b, b.lat != null ? { location_quality: 'verified', location_source: 'admin' } : {})
+    log('admin', `sensor station updated: ${s.name}`, { station_id: s.id })
+    return s
   }],
   ['GET', /^\/admin\/runs$/, () => (requireAdmin(), { items: state.runs })],
   ['GET', /^\/admin\/settings$/, () => (requireAdmin(), state.settings)],

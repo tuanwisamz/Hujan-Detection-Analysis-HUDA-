@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Circle, CircleMarker, ImageOverlay, MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import { level } from '../lib/levels'
+import { BASEMAP } from '../lib/map'
 import { useT } from '../lib/i18n'
 
 // Peninsular Malaysia (spec FR-01)
@@ -15,8 +16,6 @@ const MAX_BOUNDS = [
 const RADAR_OPACITY = 0.7
 // Below this zoom a 2.5 km circle is a few pixels wide; draw a fixed-size marker instead (affordance).
 const MARKER_BELOW_ZOOM = 9
-// OpenStreetMap tiles, shown in greyscale (index.css) for a calm base. CARTO basemaps now need an API key.
-const BASEMAP = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
 function FlyTo({ zone }) {
   const map = useMap()

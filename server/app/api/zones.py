@@ -32,7 +32,8 @@ def get_zone(zone_id: str):
                                         "p_ml", "official_warning", "explanation")}
         inputs = (p.get("explanation") or {}).get("inputs") or {}
         latest |= {k: inputs.get(k) for k in ("red_sustained_min", "red_area_max")}
-    return {**zone_out(z), "latest": latest}
+    sensors = ((p or {}).get("explanation") or {}).get("sensors") or []
+    return {**zone_out(z), "latest": latest, "sensors": sensors}
 
 
 @router.get("/{zone_id}/timeseries")
