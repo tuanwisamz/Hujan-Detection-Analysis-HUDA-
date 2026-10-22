@@ -5,6 +5,40 @@ import { Button, ErrorNote, Field, inputClass, Loading, Page, Panel, useToast } 
 import { useAdminSettings, useApiMutation, useMe, useRuns } from '../hooks/queries'
 import { api } from '../lib/api'
 import { useT } from '../lib/i18n'
+import { THEMES, useTheme } from '../lib/theme'
+
+export function ThemeChoice() {
+  const { t } = useT()
+  const toast = useToast()
+  const { pref, setPref } = useTheme()
+  const save = useApiMutation((theme) => api('/me', { method: 'PATCH', body: { theme } }), ['me'])
+  return (
+    <fieldset className="mt-4">
+      <legend className="mb-2 text-sm font-semibold">{t('theme.label')}</legend>
+      <div className="flex flex-wrap gap-2">
+        {THEMES.map((value) => (
+          <label
+            key={value}
+            className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 font-semibold ${pref === value ? 'border-primary bg-primary text-white' : 'border-line hover:border-ink/40'}`}
+          >
+            <input
+              type="radio"
+              name="theme"
+              className="sr-only"
+              checked={pref === value}
+              onChange={() => {
+                setPref(value)
+                save.mutate(value, { onSuccess: () => toast(t('settings.saved')), onError: (e) => toast(e.message, 'error') })
+              }}
+            />
+            {t(`theme.${value}`)}
+          </label>
+        ))}
+      </div>
+      <p className="mt-1 text-sm text-muted">{t('theme.hint')}</p>
+    </fieldset>
+  )
+}
 
 export function LanguageChoice() {
   const { t, lang, setLang } = useT()
@@ -84,7 +118,7 @@ function NumberField({ label, value, onChange, min, max, step = 1, error }) {
 function Toggle({ label, hint, checked, onChange }) {
   return (
     <label className="flex min-h-11 cursor-pointer items-start gap-3">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-1 size-5 accent-[#1E5450]" />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-1 size-5 accent-primary" />
       <span>
         <span className="font-semibold">{label}</span>
         {hint && <span className="block text-sm text-muted">{hint}</span>}
@@ -190,6 +224,7 @@ export default function SettingsPage({ admin = false }) {
       <div className="space-y-4">
         <Panel title={t('settings.profile')}>
           <LanguageChoice />
+          <ThemeChoice />
         </Panel>
         <Panel title={t('settings.telegram')}>
           <TelegramLink />

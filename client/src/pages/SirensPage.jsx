@@ -95,7 +95,7 @@ function SirenForm({ siren, onClose }) {
           <input maxLength={300} value={form.note} onChange={set('note')} className={inputClass} />
         </Field>
         <label className="flex min-h-11 items-center gap-2 font-semibold">
-          <input type="checkbox" checked={form.active} onChange={set('active')} className="size-5 accent-[#1E5450]" />
+          <input type="checkbox" checked={form.active} onChange={set('active')} className="size-5 accent-primary" />
           {t('sirens.activeToggle')}
         </label>
         <div className="flex justify-end gap-2 pt-1">
@@ -274,7 +274,7 @@ export default function SirensPage() {
       {sirens.data && !items.length && <EmptyState icon={Siren} text={t('sirens.empty')} />}
       {items.some((s) => s.virtual) && (
         <label className="mb-3 flex min-h-11 w-fit cursor-pointer items-center gap-2 text-sm font-semibold">
-          <input type="checkbox" checked={tone} onChange={(e) => setTone(e.target.checked)} className="size-5 accent-[#1E5450]" />
+          <input type="checkbox" checked={tone} onChange={(e) => setTone(e.target.checked)} className="size-5 accent-primary" />
           {tone ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
           {t('sirens.tone')}
         </label>

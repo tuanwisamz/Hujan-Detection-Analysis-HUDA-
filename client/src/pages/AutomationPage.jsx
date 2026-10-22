@@ -137,7 +137,7 @@ function ModePicker({ event, value, onChange }) {
 function Toggle({ label, hint, checked, onChange }) {
   return (
     <label className="flex min-h-11 cursor-pointer items-start gap-3">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-1 size-5 accent-[#1E5450]" />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-1 size-5 accent-primary" />
       <span>
         <span className="font-semibold">{label}</span>
         {hint && <span className="block text-sm text-muted">{hint}</span>}
@@ -351,7 +351,7 @@ export default function AutomationPage() {
                   <div className="flex flex-wrap gap-2">
                     {EVENTS.map((e) => (
                       <label key={e} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 ${s.quiet_hours.events.includes(e) ? 'border-ink bg-paper' : 'border-line'}`}>
-                        <input type="checkbox" checked={s.quiet_hours.events.includes(e)} onChange={(ev) => toggleQuietEvent(e)(ev.target.checked)} className="size-5 accent-[#1E5450]" />
+                        <input type="checkbox" checked={s.quiet_hours.events.includes(e)} onChange={(ev) => toggleQuietEvent(e)(ev.target.checked)} className="size-5 accent-primary" />
                         <RiskBadge value={EVENT_LEVEL[e]} size="sm" />
                         <span className="text-sm font-semibold">{t(`auto.event.${e}`)}</span>
                       </label>

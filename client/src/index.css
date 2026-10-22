@@ -14,6 +14,9 @@
   --color-primary: #1e5450;
   --color-primary-strong: #153d3a;
   --color-focus: #1f6fb2;
+  /* Sidebar / header / auth panel. Separate from ink so dark mode can flip text without flipping chrome. */
+  --color-chrome: #18302e;
+  --color-on-chrome: #ffffff;
 
   --color-level-green: #2e7d32;
   --color-level-amber: #f9a825;
@@ -21,6 +24,36 @@
   --color-level-green-soft: #e3f0e4;
   --color-level-amber-soft: #fdf1d3;
   --color-level-red-soft: #f8e0e0;
+}
+
+/* Night mode (spec FR-40, implementation-plan-v2 D24). data-theme is set before first paint by
+   index.html and kept in sync by lib/theme.jsx. Solid risk colours don't change: they carry the
+   meaning, and badges take their text colour from levels.js. All text pairs pass WCAG AA. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-paper: #0f1a19;
+  --color-surface: #172524;
+  --color-ink: #e3ecea;
+  --color-muted: #9fb1ae;
+  --color-line: #2c3d3b;
+  --color-primary: #2a7a73;
+  --color-primary-strong: #1f5f59;
+  --color-focus: #6ab0f0;
+  --color-chrome: #0b1413;
+  --color-on-chrome: #e3ecea;
+  --color-level-green-soft: #16301a;
+  --color-level-amber-soft: #3a2f0e;
+  --color-level-red-soft: #3d1a1a;
+}
+/* Colours used as text need a lighter tint on dark surfaces; as fills they stay as they are. */
+:root[data-theme='dark'] .text-primary {
+  color: #7fd0c5;
+}
+:root[data-theme='dark'] .text-level-red {
+  color: #ff8a80;
+}
+:root[data-theme='dark'] .text-level-green {
+  color: #81c784;
 }
 
 html,
@@ -92,6 +125,26 @@ body {
 }
 .basemap {
   filter: grayscale(1) contrast(0.92) brightness(1.04);
+}
+:root[data-theme='dark'] .leaflet-container {
+  background: #1b2423;
+}
+/* Same calm base, darkened: radar and zone colours sit on other layers and keep their colours. */
+:root[data-theme='dark'] .basemap {
+  filter: grayscale(1) invert(1) brightness(0.82) contrast(0.92);
+}
+:root[data-theme='dark'] .leaflet-tooltip,
+:root[data-theme='dark'] .leaflet-bar a,
+:root[data-theme='dark'] .leaflet-control-attribution {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border-color: var(--color-line);
+}
+:root[data-theme='dark'] .leaflet-control-attribution a {
+  color: #7fd0c5;
+}
+:root[data-theme='dark'] .leaflet-tooltip-top::before {
+  border-top-color: var(--color-surface);
 }
 .leaflet-interactive.zone-shape:hover {
   stroke-width: 4;

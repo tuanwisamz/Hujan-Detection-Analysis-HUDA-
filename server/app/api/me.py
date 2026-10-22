@@ -18,6 +18,7 @@ CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 def _me(profile: dict) -> dict:
     return {"id": profile["id"], "email": profile.get("email"), "full_name": profile.get("full_name"),
             "role": profile.get("role", "user"), "language": profile.get("language", "en"),
+            "theme": profile.get("theme") or "system",
             "telegram_linked": profile.get("telegram_chat_id") is not None,
             "onboarded": bool(profile.get("onboarded"))}
 

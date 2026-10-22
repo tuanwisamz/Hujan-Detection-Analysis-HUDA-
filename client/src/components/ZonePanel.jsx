@@ -2,6 +2,7 @@ import { Bell, BellRing, Siren, X } from 'lucide-react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useSubscriptions, usePutSubscriptions, useTimeseries, useZone } from '../hooks/queries'
 import { level } from '../lib/levels'
+import { useThemeColors } from '../lib/theme'
 import { describeRule } from '../lib/rules'
 import { useT } from '../lib/i18n'
 import { formatTime } from '../lib/time'
@@ -74,6 +75,7 @@ export default function ZonePanel({ zoneId, onClose, thresholds }) {
   const p = z?.latest || {}
   const l = level(p.level)
   const ex = p.explanation || {}
+  const colors = useThemeColors()
   const amber = thresholds?.amber_rate_mmh ?? 10
   const red = thresholds?.red_rate_mmh ?? 30
 
@@ -178,16 +180,17 @@ export default function ZonePanel({ zoneId, onClose, thresholds }) {
                 {series.data && (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={series.data} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
-                      <CartesianGrid stroke="#E3E8E7" vertical={false} />
-                      <XAxis dataKey="ts" tickFormatter={(v) => formatTime(v, lang)} minTickGap={40} tick={{ fontSize: 11, fill: '#5A6B69' }} />
-                      <YAxis tick={{ fontSize: 11, fill: '#5A6B69' }} width={44} />
+                      <CartesianGrid stroke={colors.grid} vertical={false} />
+                      <XAxis dataKey="ts" tickFormatter={(v) => formatTime(v, lang)} minTickGap={40} tick={{ fontSize: 11, fill: colors.muted }} />
+                      <YAxis tick={{ fontSize: 11, fill: colors.muted }} width={44} />
                       <ReferenceLine y={red} stroke="#C62828" strokeDasharray="4 3" />
                       <ReferenceLine y={amber} stroke="#F9A825" strokeDasharray="4 3" />
                       <Tooltip
+                        contentStyle={{ background: 'var(--color-surface)', borderColor: 'var(--color-line)', color: 'var(--color-ink)' }}
                         labelFormatter={(v) => `${formatTime(v, lang)} MYT`}
                         formatter={(v, name) => (name === 'rain_rate_max' ? [`${v} ${t('common.mmh')}`, t('zone.maxRain')] : [v, name])}
                       />
-                      <Line type="monotone" dataKey="rain_rate_max" stroke="#1E5450" strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="rain_rate_max" stroke={colors.accent} strokeWidth={2} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}

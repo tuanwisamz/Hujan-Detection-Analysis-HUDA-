@@ -146,3 +146,12 @@ def test_station_patch_needs_lat_and_lon_together(client, monkeypatch):
     assert client.patch("/api/v1/admin/sensors/jps-rain:3717101", headers=headers, json={"lat": 3.7}).status_code == 422
     r = client.patch("/api/v1/admin/sensors/jps-rain:3717101", headers=headers, json={"lat": 3.71, "lon": 101.74})
     assert r.status_code == 200 and saved["location_quality"] == "verified" and saved["location_source"] == "admin"
+
+
+def test_theme_is_validated_and_saved(client, monkeypatch):
+    saved = {}
+    monkeypatch.setattr(repo, "update_profile", lambda uid, patch: saved.update(patch) or {"id": uid, **patch})
+    headers = {"Authorization": f"Bearer {token()}"}
+    assert client.patch("/api/v1/me", headers=headers, json={"theme": "purple"}).status_code == 422
+    r = client.patch("/api/v1/me", headers=headers, json={"theme": "dark"})
+    assert r.status_code == 200 and r.json()["theme"] == "dark" and saved == {"theme": "dark"}

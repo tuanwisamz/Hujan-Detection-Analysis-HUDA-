@@ -13,6 +13,15 @@
       rel="stylesheet"
     />
     <title>HUDA</title>
+    <script>
+      // Night mode before first paint; lib/theme.jsx takes over after load.
+      try {
+        var p = localStorage.getItem('huda.theme')
+        var dark = p === 'dark' || ((!p || p === 'system') && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

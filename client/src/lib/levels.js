@@ -33,7 +33,7 @@ export const LEVELS = {
 // Legend order: Green → Amber → Red, top → bottom, like a traffic light read downward (spec §10.1 Mapping).
 export const LEVEL_ORDER = ['GREEN', 'AMBER', 'RED']
 
-export const NO_DATA = { key: 'NONE', color: '#8A9896', soft: '#ECEFEE', text: '#FFFFFF', Icon: null, rank: -1 }
+export const NO_DATA = { key: 'NONE', color: '#8A9896', soft: 'var(--color-paper)', text: '#FFFFFF', Icon: null, rank: -1 }
 
 export function level(key) {
   return LEVELS[key] || NO_DATA

@@ -71,7 +71,7 @@ export default function TimelineSlider({ frames, index, onChange, playing, onTog
                     height: active ? '100%' : '62%',
                     background: strip[i] ? l.color : forecast ? '#AEBAB8' : '#C4CDCB',
                     opacity: forecast && !f.image_url && !strip[i] ? 0.55 : 1,
-                    boxShadow: active ? '0 0 0 2px #18302E' : 'none',
+                    boxShadow: active ? '0 0 0 2px var(--color-ink)' : 'none',
                   }}
                 />
               )

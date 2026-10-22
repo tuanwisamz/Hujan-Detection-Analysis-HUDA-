@@ -186,6 +186,7 @@ class SyncBody(BaseModel):
 class ProfilePatch(BaseModel):
     full_name: str | None = Field(None, max_length=120)
     language: Literal["en", "ms"] | None = None
+    theme: Literal["system", "light", "dark"] | None = None  # night mode (implementation-plan-v2 D24)
     onboarded: bool | None = None
 
 

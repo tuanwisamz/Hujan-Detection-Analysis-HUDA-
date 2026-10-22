@@ -79,7 +79,7 @@ function UserZones() {
                 return (
                   <li key={z.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <label className="flex min-h-11 flex-1 cursor-pointer items-center gap-3">
-                      <input type="checkbox" checked={on} onChange={() => toggle(z.id)} className="size-5 accent-[#1E5450]" />
+                      <input type="checkbox" checked={on} onChange={() => toggle(z.id)} className="size-5 accent-primary" />
                       <span className="min-w-0">
                         <span className="block font-semibold">{z.name}</span>
                         <span className="block text-sm text-muted">{z.district}</span>

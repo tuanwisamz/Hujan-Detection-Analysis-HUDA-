@@ -14,10 +14,10 @@ export default function AuthPage({ mode = 'sign-in' }) {
 
   return (
     <div className="grid min-h-full lg:grid-cols-[1fr_1.1fr]">
-      <section className="flex flex-col justify-between bg-ink px-6 py-8 text-white sm:px-12 sm:py-12">
+      <section className="flex flex-col justify-between bg-chrome px-6 py-8 text-on-chrome sm:px-12 sm:py-12">
         <div>
           <p className="text-3xl font-bold tracking-tight">HUDA</p>
-          <p className="mt-1 text-white/75">Hujan Detection Analysis</p>
+          <p className="mt-1 text-on-chrome/75">Hujan Detection Analysis</p>
         </div>
         <div className="my-10 max-w-md">
           <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{t('app.tagline')}</h1>
@@ -31,14 +31,14 @@ export default function AuthPage({ mode = 'sign-in' }) {
                   </span>
                   <span>
                     <span className="font-semibold">{t(`level.${key}`)}</span>
-                    <span className="block text-sm text-white/75">{t(`level.${key}.meaning`)}</span>
+                    <span className="block text-sm text-on-chrome/75">{t(`level.${key}.meaning`)}</span>
                   </span>
                 </li>
               )
             })}
           </ul>
         </div>
-        <p className="text-xs text-white/60">Sime Darby Property townships · Peninsular Malaysia</p>
+        <p className="text-xs text-on-chrome/60">Sime Darby Property townships · Peninsular Malaysia</p>
       </section>
       <section className="flex items-center justify-center px-4 py-10">
         {mode === 'sign-in' ? (

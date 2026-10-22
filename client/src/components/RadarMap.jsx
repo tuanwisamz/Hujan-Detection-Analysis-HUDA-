@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Circle, CircleMarker, ImageOverlay, MapContainer, Polygon, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import { level } from '../lib/levels'
 import { BASEMAP } from '../lib/map'
+import { useThemeColors } from '../lib/theme'
 import { useT } from '../lib/i18n'
 
 // Peninsular Malaysia (spec FR-01)
@@ -40,8 +41,9 @@ function useZoom() {
 function ZoneShape({ zone, selected, onSelect, zoom }) {
   const { t } = useT()
   const l = level(zone.level)
+  const outline = useThemeColors().ink
   const style = {
-    color: selected ? '#18302E' : l.color,
+    color: selected ? outline : l.color,
     weight: selected ? 4 : 2,
     fillColor: l.color,
     fillOpacity: 0.38,
@@ -60,7 +62,7 @@ function ZoneShape({ zone, selected, onSelect, zoom }) {
         <Circle center={[zone.lat, zone.lon]} radius={zone.radius_m || 2500} interactive={false} pathOptions={{ color: l.color, fill: false, weight: 2, className: 'zone-pulse' }} />
       )}
       {zoom < MARKER_BELOW_ZOOM ? (
-        <CircleMarker center={[zone.lat, zone.lon]} radius={selected ? 10 : 8} pathOptions={{ ...style, fillOpacity: 0.9, weight: 2, color: selected ? '#18302E' : '#FFFFFF' }} eventHandlers={handlers}>
+        <CircleMarker center={[zone.lat, zone.lon]} radius={selected ? 10 : 8} pathOptions={{ ...style, fillOpacity: 0.9, weight: 2, color: selected ? outline : '#FFFFFF' }} eventHandlers={handlers}>
           {tooltip}
         </CircleMarker>
       ) : coords ? (

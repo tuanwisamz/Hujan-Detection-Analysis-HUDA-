@@ -267,7 +267,7 @@ export function ToastProvider({ children }) {
         {toasts.map((x) => (
           <div
             key={x.id}
-            className={`pointer-events-auto rounded-lg px-4 py-3 text-sm font-semibold shadow-lg ${x.tone === 'error' ? 'bg-level-red text-white' : 'bg-ink text-white'}`}
+            className={`pointer-events-auto rounded-lg px-4 py-3 text-sm font-semibold shadow-lg ${x.tone === 'error' ? 'bg-level-red text-white' : 'bg-chrome text-on-chrome ring-1 ring-on-chrome/20'}`}
           >
             {x.text}
           </div>

@@ -14,7 +14,7 @@ const state = {
   sirens: seedSirens(),
   sirenActs: seedSirenActs(),
   subs: [{ zone_id: 'z01', min_level: 'AMBER' }, { zone_id: 'z02', min_level: 'AMBER' }],
-  me: { id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', language: 'en', telegram_linked: false, onboarded: true },
+  me: { id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', language: 'en', theme: 'system', telegram_linked: false, onboarded: true },
   reports: [
     { id: 'r1', type: 'custom', zone_ids: null, period_start: ago(10080), period_end: ago(0), created_by: 'user_demo', created_at: ago(60), status: 'ready', content_md: REPORT_MD },
   ],

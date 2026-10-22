@@ -159,11 +159,11 @@ export default function SensorsPage() {
             </select>
           </label>
           <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={filters.needs_location} onChange={set('needs_location')} className="size-5 accent-[#1E5450]" />
+            <input type="checkbox" checked={filters.needs_location} onChange={set('needs_location')} className="size-5 accent-primary" />
             {t('sensors.needsLocation')}
           </label>
           <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" checked={filters.stale} onChange={set('stale')} className="size-5 accent-[#1E5450]" />
+            <input type="checkbox" checked={filters.stale} onChange={set('stale')} className="size-5 accent-primary" />
             {t('sensors.staleOnly')}
           </label>
         </div>

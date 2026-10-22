@@ -6,6 +6,7 @@ import { ToastProvider } from './components/ui'
 import './index.css'
 import { AuthGate } from './lib/auth'
 import { I18nProvider } from './lib/i18n'
+import { ThemeProvider } from './lib/theme'
 import { router } from './routes/router'
 
 const queryClient = new QueryClient({
@@ -20,6 +21,7 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <I18nProvider>
+      <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <AuthGate>
@@ -27,6 +29,7 @@ createRoot(document.getElementById('root')).render(
           </AuthGate>
         </ToastProvider>
       </QueryClientProvider>
+      </ThemeProvider>
     </I18nProvider>
   </StrictMode>,
 )
