@@ -1,4 +1,4 @@
-import { Bot, ExternalLink, Send } from 'lucide-react'
+import { Bot, ExternalLink, KeyRound, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Button, ErrorNote, Field, inputClass, Loading, Page, Panel, useToast } from '../components/ui'
@@ -228,6 +228,16 @@ export default function SettingsPage({ admin = false }) {
         </Panel>
         <Panel title={t('settings.telegram')}>
           <TelegramLink />
+        </Panel>
+        <Panel title={t('account.title')}>
+          <p className="mb-3 text-sm text-muted">{t('account.cardIntro')}</p>
+          <Link
+            to={admin ? '/admin/account/security' : '/app/account/security'}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-ink/25 bg-surface px-4 text-sm font-semibold hover:border-ink/50"
+          >
+            <KeyRound size={16} aria-hidden="true" />
+            {t('account.changePassword')}
+          </Link>
         </Panel>
         {admin && <AdminSettings />}
       </div>

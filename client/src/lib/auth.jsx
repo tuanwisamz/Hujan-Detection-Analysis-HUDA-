@@ -1,6 +1,8 @@
 import { ClerkProvider, useAuth, useClerk } from '@clerk/react'
+import { msMY } from '@clerk/localizations/ms-MY'
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { setTokenGetter, USE_MOCKS } from './api'
+import { useT } from './i18n'
 import { useTheme } from './theme'
 
 // One auth shape for the app, whether Clerk is live or we're in mock mode
@@ -66,6 +68,7 @@ const CLERK_COLORS = {
 /** Clerk in real mode, a fake signed-in user in mock mode. */
 export function AuthGate({ children }) {
   const { mode } = useTheme()
+  const { lang } = useT()
   if (USE_MOCKS) return <MockAuthProvider>{children}</MockAuthProvider>
   if (!publishableKey) {
     return (
@@ -81,6 +84,7 @@ export function AuthGate({ children }) {
     <ClerkProvider
       publishableKey={publishableKey}
       afterSignOutUrl="/sign-in"
+      localization={lang === 'ms' ? msMY : undefined}
       appearance={{ variables: { ...CLERK_COLORS[mode], fontFamily: 'var(--font-sans)', borderRadius: '0.5rem' } }}
     >
       <ClerkAuthBridge>{children}</ClerkAuthBridge>

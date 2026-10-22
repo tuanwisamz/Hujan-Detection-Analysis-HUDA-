@@ -18,6 +18,7 @@ const ZonesPage = lazy(() => import('../pages/ZonesPage'))
 const AutomationPage = lazy(() => import('../pages/AutomationPage'))
 const SensorsPage = lazy(() => import('../pages/SensorsPage'))
 const SirensPage = lazy(() => import('../pages/SirensPage'))
+const AccountPage = lazy(() => import('../pages/AccountPage'))
 
 const page = (el) => (
   <Suspense
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
           { path: 'logs', element: page(<LogsPage />) },
           { path: 'reports', element: page(<ReportsPage />) },
           { path: 'settings', element: page(<SettingsPage />) },
+          { path: 'account/*', element: page(<AccountPage />) },
         ],
       },
       {
@@ -70,6 +72,7 @@ export const router = createBrowserRouter([
               { path: 'sensors', element: page(<SensorsPage />) },
               { path: 'sirens', element: page(<SirensPage />) },
               { path: 'settings', element: page(<SettingsPage admin />) },
+              { path: 'account/*', element: page(<AccountPage admin />) },
             ],
           },
         ],
