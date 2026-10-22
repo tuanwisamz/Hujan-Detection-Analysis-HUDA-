@@ -1,5 +1,6 @@
-import { ExternalLink, Send } from 'lucide-react'
+import { Bot, ExternalLink, Send } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Button, ErrorNote, Field, inputClass, Loading, Page, Panel, useToast } from '../components/ui'
 import { useAdminSettings, useApiMutation, useMe, useRuns } from '../hooks/queries'
 import { api } from '../lib/api'
@@ -115,9 +116,6 @@ function AdminSettings() {
     if (rateErr || pErr) return
     const body = {
       thresholds: Object.fromEntries(Object.entries(th).map(([k, v]) => [k, Number(v)])),
-      cooldown_min: Number(s.cooldown_min),
-      all_clear_after_min: Number(s.all_clear_after_min),
-      amber_requires_approval: s.amber_requires_approval,
       pipeline_enabled: s.pipeline_enabled,
     }
     save.mutate(body, { onSuccess: () => (setDraft(null), toast(t('settings.saved'))), onError: (err) => toast(err.message, 'error') })
@@ -136,13 +134,13 @@ function AdminSettings() {
         </div>
       </Panel>
       <Panel title={t('settings.alerts')}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NumberField label={t('settings.cooldown')} value={s.cooldown_min} onChange={set('cooldown_min')} min={0} max={1440} />
-          <NumberField label={t('settings.allClear')} value={s.all_clear_after_min} onChange={set('all_clear_after_min')} min={0} max={1440} />
-        </div>
-        <div className="mt-3 space-y-1">
-          <Toggle label={t('settings.amberApproval')} checked={s.amber_requires_approval} onChange={set('amber_requires_approval')} />
-          <Toggle label={t('settings.pipeline')} hint={!s.pipeline_enabled ? t('settings.pipelineOff') : null} checked={s.pipeline_enabled} onChange={set('pipeline_enabled')} />
+        <Toggle label={t('settings.pipeline')} hint={!s.pipeline_enabled ? t('settings.pipelineOff') : null} checked={s.pipeline_enabled} onChange={set('pipeline_enabled')} />
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-paper px-3 py-3">
+          <p className="min-w-0 flex-1 text-sm">{t('settings.automationMoved')}</p>
+          <Link to="/admin/automation" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-ink/25 bg-surface px-4 text-sm font-semibold hover:border-ink/50">
+            <Bot size={16} aria-hidden="true" />
+            {t('settings.automationOpen')}
+          </Link>
         </div>
       </Panel>
       <Panel title={t('settings.sources')}>

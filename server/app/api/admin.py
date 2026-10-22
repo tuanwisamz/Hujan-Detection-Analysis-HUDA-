@@ -3,12 +3,14 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import ValidationError
 
 from .. import repo
 from ..agents import alert_writer
 from ..auth import User, clerk_set_role, require_admin
 from ..errors import ApiError, not_found
-from ..models import AppSettings, RoleBody, SettingsPatch, WarningIn, WarningTextPatch, ZoneIn, ZonePatch
+from ..models import (AppSettings, AutomationPatch, RoleBody, SettingsPatch, WarningIn, WarningTextPatch, ZoneIn,
+                      ZonePatch)
 from ..ratelimit import default_limit
 from ..services import alerts, telegram
 from .zones import zone_out
@@ -121,7 +123,7 @@ def approve(warning_id: str, user: User = Depends(require_admin)):
     repo.update_warning(warning_id, {"approved_by": user.id})
     try:
         sent = alerts.send_warning({**w, "approved_by": user.id}, z, repo.latest_predictions().get(z["id"]),
-                                   actor=user.id)
+                                   actor=user.id, send_dms=repo.get_app_settings().automation.send_dms)
     except telegram.TelegramError as exc:
         raise ApiError(503, f"Telegram send failed: {exc}") from exc
     _audit(user, f"warning approved and sent: {z['name']} {w['level']}", zone_id=z["id"], warning_id=warning_id)
@@ -155,7 +157,8 @@ def rebroadcast(warning_id: str, user: User = Depends(require_admin)):
     if last and repo.now() - last < timedelta(minutes=REBROADCAST_MIN):
         raise ApiError(429, f"Re-broadcast allowed once every {REBROADCAST_MIN} min")
     try:
-        sent = alerts.send_warning(w, z, repo.latest_predictions().get(z["id"]), actor=user.id)
+        sent = alerts.send_warning(w, z, repo.latest_predictions().get(z["id"]), actor=user.id,
+                                   send_dms=repo.get_app_settings().automation.send_dms)
     except telegram.TelegramError as exc:
         raise ApiError(503, f"Telegram send failed: {exc}") from exc
     _audit(user, f"warning re-broadcast: {z['name']} {w['level']}", zone_id=z["id"], warning_id=warning_id)
@@ -184,18 +187,95 @@ def runs(limit: int = Query(50, ge=1, le=200)):
 
 @router.get("/settings")
 def get_settings_route():
-    return repo.get_app_settings().model_dump()
+    return repo.get_app_settings().model_dump(mode="json")
 
 
 @router.patch("/settings")
 def patch_settings(body: SettingsPatch, user: User = Depends(require_admin)):
     current = repo.get_app_settings()
     patch = body.model_dump(exclude_none=True)
-    merged = AppSettings.model_validate({**current.model_dump(), **patch})  # re-validates amber < red
-    repo.save_app_settings({k: getattr(merged, k).model_dump() if k == "thresholds" else getattr(merged, k)
-                            for k in patch}, user.id)
+    base = current.model_dump()
+    if "amber_requires_approval" in patch:  # legacy toggle drives the Amber automation rule
+        modes = base["automation"]["modes"]
+        modes["amber"] = "approval" if patch["amber_requires_approval"] else (
+            "auto" if modes["amber"] == "approval" else modes["amber"])
+    merged = AppSettings.model_validate({**base, **patch})  # re-validates amber < red
+    values = {k: getattr(merged, k).model_dump() if k == "thresholds" else getattr(merged, k) for k in patch}
+    if "amber_requires_approval" in patch:
+        values["automation"] = merged.automation.model_dump(mode="json")
+    repo.save_app_settings(values, user.id)
     _audit(user, "settings updated", fields=list(patch))
-    return merged.model_dump()
+    return merged.model_dump(mode="json")
+
+
+# ---- Automation (docs/automation-control.md) ----
+
+def _automation_out(s: AppSettings) -> dict:
+    return {"automation": s.automation.model_dump(mode="json"), "cooldown_min": s.cooldown_min,
+            "all_clear_after_min": s.all_clear_after_min, "pipeline_enabled": s.pipeline_enabled,
+            "status": alerts.automation_status(s, repo.now()),
+            "pending_count": len(repo.list_warnings("pending_approval", 500))}
+
+
+@router.get("/automation")
+def get_automation():
+    return _automation_out(repo.get_app_settings())
+
+
+@router.patch("/automation")
+def patch_automation(body: AutomationPatch, user: User = Depends(require_admin)):
+    """Partial update of the announcement rules; also pause (`pause_minutes`) and `resume`."""
+    current = repo.get_app_settings()
+    patch = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    if not patch:
+        raise ApiError(422, "Nothing to update")
+    auto = current.automation.model_dump()
+    for key in ("modes", "quiet_hours"):
+        if key in patch:
+            auto[key] = {**auto[key], **{k: v for k, v in patch.pop(key).items() if v is not None}}
+    events = []
+    if patch.pop("resume", False):
+        auto.update(enabled=True, paused_until=None)
+        events.append("automation resumed")
+    if minutes := patch.pop("pause_minutes", None):
+        auto.update(enabled=True, paused_until=repo.now() + timedelta(minutes=minutes))
+        events.append(f"automation paused for {minutes} min")
+    if patch.get("enabled") is False:
+        events.append("automation paused until resumed")
+    elif patch.get("enabled") is True and "automation resumed" not in events:
+        auto["paused_until"] = None
+        events.append("automation resumed")
+    top = {k: patch.pop(k) for k in ("cooldown_min", "all_clear_after_min") if k in patch}
+    auto.update(patch)
+    try:
+        merged = AppSettings.model_validate({**current.model_dump(), **top, "automation": auto})
+    except ValidationError as exc:
+        raise ApiError(422, "; ".join(e["msg"] for e in exc.errors())) from exc
+    repo.save_app_settings({"automation": merged.automation.model_dump(mode="json"),
+                            "amber_requires_approval": merged.amber_requires_approval,
+                            **{k: getattr(merged, k) for k in top}}, user.id)
+    fields = sorted(set(body.model_dump(exclude_unset=True)) - {"resume", "pause_minutes", "enabled"})
+    for message in events:
+        _audit(user, message)
+    if fields:
+        _audit(user, "automation settings updated", fields=fields)
+    return _automation_out(merged)
+
+
+@router.post("/automation/test")
+def automation_test(user: User = Depends(require_admin)):
+    """Post a clearly-marked test message to the channel to check the bot and channel setup."""
+    stamp = (repo.now() + alerts.MYT).strftime("%H:%M")
+    text = (f"🧪 TEST · HUDA\n"
+            f"EN: This is a test message from the HUDA admin team. No action needed.\n"
+            f"BM: Ini mesej ujian daripada pentadbir HUDA. Tiada tindakan diperlukan.\n"
+            f"Sent {stamp} MYT")
+    try:
+        message_id = telegram.send_channel(text)
+    except telegram.TelegramError as exc:
+        raise ApiError(503, f"Telegram send failed: {exc}") from exc
+    _audit(user, "automation test message sent", telegram_message_id=message_id)
+    return {"telegram_message_id": message_id, "sent_at": repo.iso(repo.now())}
 
 
 @router.patch("/users/{user_id}/role")

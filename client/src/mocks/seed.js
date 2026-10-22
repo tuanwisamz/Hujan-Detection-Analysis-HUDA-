@@ -154,6 +154,16 @@ export const SETTINGS = {
   amber_requires_approval: true,
   all_clear_after_min: 30,
   pipeline_enabled: true,
+  automation: {
+    enabled: true,
+    paused_until: null,
+    modes: { amber: 'approval', red: 'auto', all_clear: 'auto' },
+    quiet_hours: { enabled: false, start: '23:00', end: '06:00', events: ['amber', 'all_clear'] },
+    zone_overrides: {},
+    use_ai_text: true,
+    send_dms: true,
+    auto_expires_min: 120,
+  },
 }
 
 export const REPORT_MD = `# HUDA Report

@@ -30,6 +30,16 @@ export const useWarnings = (status) =>
 export const useAdminSettings = (enabled = true) =>
   useQuery({ queryKey: ['settings'], queryFn: () => api('/admin/settings'), enabled })
 
+export const useAutomation = (enabled = true) =>
+  useQuery({ queryKey: ['automation'], queryFn: () => api('/admin/automation'), refetchInterval: 60000, enabled })
+
+export const useAutomationActivity = () =>
+  useQuery({
+    queryKey: ['automationActivity'],
+    queryFn: () => api('/admin/logs', { query: { category: 'alert', limit: 8 } }),
+    refetchInterval: 60000,
+  })
+
 export const useRuns = () => useQuery({ queryKey: ['runs'], queryFn: () => api('/admin/runs'), refetchInterval: 60000 })
 
 export const useReports = () =>

@@ -1,4 +1,4 @@
-import { FileText, LogOut, Map as MapIcon, Megaphone, MessageCircle, ScrollText, Settings, Shield, User } from 'lucide-react'
+import { Bot, FileText, LogOut, Map as MapIcon, Megaphone, MessageCircle, ScrollText, Settings, Shield, User } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useMe } from '../hooks/queries'
@@ -13,7 +13,10 @@ function navFor(base, admin) {
     { to: `${base}/logs`, label: admin ? 'nav.adminLogs' : 'nav.logs', Icon: ScrollText },
     { to: `${base}/reports`, label: 'nav.reports', Icon: FileText },
   ]
-  if (admin) items.push({ to: `${base}/warnings`, label: 'nav.warnings', Icon: Megaphone })
+  if (admin) {
+    items.push({ to: `${base}/warnings`, label: 'nav.warnings', Icon: Megaphone })
+    items.push({ to: `${base}/automation`, label: 'nav.automation', Icon: Bot })
+  }
   items.push({ to: `${base}/settings`, label: 'nav.settings', Icon: Settings })
   return items
 }

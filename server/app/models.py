@@ -1,6 +1,6 @@
 """Shared enums and request bodies (api-spec.md)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal
 
@@ -39,12 +39,100 @@ class Thresholds(BaseModel):
         return self
 
 
+# ---- Automation (docs/automation-control.md): admin owns every Telegram announcement ----
+
+Mode = Literal["auto", "approval", "off"]  # send · hold in "Needs approval" · don't announce
+Event = Literal["amber", "red", "all_clear"]
+EVENTS = ("amber", "red", "all_clear")
+HHMM = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
+
+
+class EventModes(BaseModel):
+    amber: Mode = "auto"
+    red: Mode = "auto"
+    all_clear: Mode = "auto"
+
+
+class QuietHours(BaseModel):
+    """MYT window in which auto-sends for the listed events are held for approval instead."""
+    enabled: bool = False
+    start: str = Field("23:00", pattern=HHMM)
+    end: str = Field("06:00", pattern=HHMM)
+    events: list[Event] = Field(default_factory=lambda: ["amber", "all_clear"])
+
+    @model_validator(mode="after")
+    def check(self):
+        if self.start == self.end:
+            raise ValueError("quiet hours start and end must differ")
+        self.events = sorted(set(self.events), key=EVENTS.index)
+        return self
+
+
+class Automation(BaseModel):
+    enabled: bool = True  # False = paused until an admin resumes
+    paused_until: datetime | None = None  # timed pause
+    modes: EventModes = EventModes()
+    quiet_hours: QuietHours = QuietHours()
+    zone_overrides: dict[str, Literal["approval", "off"]] = Field(default_factory=dict)
+    use_ai_text: bool = True
+    send_dms: bool = True
+    auto_expires_min: int = Field(120, ge=15, le=1440)
+
+    @model_validator(mode="after")
+    def utc(self):
+        if self.paused_until is not None and self.paused_until.tzinfo is None:
+            self.paused_until = self.paused_until.replace(tzinfo=timezone.utc)
+        return self
+
+
+class EventModesPatch(BaseModel):
+    amber: Mode | None = None
+    red: Mode | None = None
+    all_clear: Mode | None = None
+
+
+class QuietHoursPatch(BaseModel):
+    enabled: bool | None = None
+    start: str | None = Field(None, pattern=HHMM)
+    end: str | None = Field(None, pattern=HHMM)
+    events: list[Event] | None = None
+
+
+class AutomationPatch(BaseModel):
+    enabled: bool | None = None
+    modes: EventModesPatch | None = None
+    quiet_hours: QuietHoursPatch | None = None
+    zone_overrides: dict[str, Literal["approval", "off"]] | None = None  # replaces the whole map
+    use_ai_text: bool | None = None
+    send_dms: bool | None = None
+    auto_expires_min: int | None = Field(None, ge=15, le=1440)
+    cooldown_min: int | None = Field(None, ge=0, le=1440)
+    all_clear_after_min: int | None = Field(None, ge=0, le=1440)
+    pause_minutes: int | None = Field(None, ge=1, le=10080)  # timed pause
+    resume: bool | None = None  # clears any pause
+
+
 class AppSettings(BaseModel):
     thresholds: Thresholds = Thresholds()
     cooldown_min: int = Field(30, ge=0, le=1440)
-    amber_requires_approval: bool = False
+    amber_requires_approval: bool = False  # legacy; mirrors automation.modes.amber == "approval"
     all_clear_after_min: int = Field(30, ge=0, le=1440)
     pipeline_enabled: bool = True
+    automation: Automation = Automation()
+
+    @model_validator(mode="before")
+    @classmethod
+    def legacy_amber(cls, data):
+        if isinstance(data, dict) and data.get("automation") is None:
+            data = {k: v for k, v in data.items() if k != "automation"}
+            if data.get("amber_requires_approval"):
+                data["automation"] = {"modes": {"amber": "approval"}}
+        return data
+
+    @model_validator(mode="after")
+    def mirror_amber(self):
+        self.amber_requires_approval = self.automation.modes.amber == "approval"
+        return self
 
 
 class SettingsPatch(BaseModel):

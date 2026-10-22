@@ -19,6 +19,41 @@ const state = {
 }
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// Mirrors server/app/services/alerts.py resolve_mode / automation_status.
+const EVENTS = ['amber', 'red', 'all_clear']
+function automationStatus(s) {
+  const a = s.automation
+  const now = Date.now()
+  const paused = !a.enabled || (!!a.paused_until && new Date(a.paused_until).getTime() > now)
+  const q = a.quiet_hours
+  const mins = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
+  const myt = new Date(now + 8 * 3600000)
+  const t = myt.getUTCHours() * 60 + myt.getUTCMinutes()
+  const [start, end] = [mins(q.start), mins(q.end)]
+  const quiet = q.enabled && (start < end ? t >= start && t < end : t >= start || t < end)
+  const resolve = (e) => {
+    const m = a.modes[e]
+    if (m === 'auto' && (paused || (quiet && q.events.includes(e)))) return 'approval'
+    return m
+  }
+  const current = EVENTS.every((e) => a.modes[e] === 'off') ? 'off' : paused ? 'paused' : quiet && q.events.length ? 'quiet_hours' : 'active'
+  return {
+    state: current,
+    paused_until: a.enabled && paused ? a.paused_until : null,
+    quiet_now: quiet,
+    effective: Object.fromEntries(EVENTS.map((e) => [e, resolve(e)])),
+    zones_overridden: Object.keys(a.zone_overrides).length,
+  }
+}
+const automationOut = () => ({
+  automation: state.settings.automation,
+  cooldown_min: state.settings.cooldown_min,
+  all_clear_after_min: state.settings.all_clear_after_min,
+  pipeline_enabled: state.settings.pipeline_enabled,
+  status: automationStatus(state.settings),
+  pending_count: state.warnings.filter((w) => w.status === 'pending_approval').length,
+})
 const role = () => {
   try {
     return localStorage.getItem('huda.mockRole') || 'admin'
@@ -230,6 +265,34 @@ const routes = [
     state.settings = next
     log('admin', 'settings updated', { fields: Object.keys(b) })
     return next
+  }],
+  ['GET', /^\/admin\/automation$/, () => (requireAdmin(), automationOut())],
+  ['PATCH', /^\/admin\/automation$/, (_m, _q, b) => {
+    requireAdmin()
+    const a = structuredClone(state.settings.automation)
+    const { modes, quiet_hours, resume, pause_minutes, cooldown_min, all_clear_after_min, ...rest } = b
+    if (modes) Object.assign(a.modes, modes)
+    if (quiet_hours) Object.assign(a.quiet_hours, quiet_hours)
+    if (a.quiet_hours.start === a.quiet_hours.end) throw new ApiError(422, 'VALIDATION_ERROR', 'quiet hours start and end must differ')
+    Object.assign(a, rest)
+    if (resume || rest.enabled === true) Object.assign(a, { enabled: true, paused_until: null })
+    if (pause_minutes) Object.assign(a, { enabled: true, paused_until: iso(Date.now() + pause_minutes * 60000) })
+    state.settings = {
+      ...state.settings,
+      automation: a,
+      amber_requires_approval: a.modes.amber === 'approval',
+      ...(cooldown_min != null && { cooldown_min }),
+      ...(all_clear_after_min != null && { all_clear_after_min }),
+    }
+    log('admin', resume ? 'automation resumed' : pause_minutes ? `automation paused for ${pause_minutes} min` : rest.enabled === false ? 'automation paused until resumed' : 'automation settings updated')
+    return automationOut()
+  }],
+  ['POST', /^\/admin\/automation\/test$/, async () => {
+    requireAdmin()
+    await delay(500)
+    const id = 4600 + Math.floor(Math.random() * 99)
+    log('admin', 'automation test message sent', { telegram_message_id: id })
+    return { telegram_message_id: id, sent_at: iso(Date.now()) }
   }],
   ['GET', /^\/admin\/users$/, () => ({ items: [{ id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', role: role() }] })],
   ['GET', /^\/reports$/, () => ({ items: state.reports.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'content_md'))) })],

@@ -1,11 +1,44 @@
-import { Megaphone, Plus, Sparkles } from 'lucide-react'
+import { Bot, Megaphone, Plus, Sparkles } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import RiskBadge from '../components/RiskBadge'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorNote, Field, inputClass, Loading, Page, Tabs, useToast } from '../components/ui'
-import { useApiMutation, useWarnings, useZones } from '../hooks/queries'
+import { useApiMutation, useAutomation, useWarnings, useZones } from '../hooks/queries'
 import { api } from '../lib/api'
 import { useT } from '../lib/i18n'
-import { formatDateTime } from '../lib/time'
+import { formatDateTime, formatTime } from '../lib/time'
+
+const BANNER_STYLE = {
+  active: 'border-level-green/40 bg-level-green-soft',
+  paused: 'border-level-amber bg-level-amber-soft',
+  quiet_hours: 'border-primary/30 bg-paper',
+  off: 'border-level-red/40 bg-level-red-soft',
+}
+
+/** One-line automation state, so admins know why warnings are (or aren't) queued here. */
+function AutomationBanner() {
+  const { t, lang } = useT()
+  const auto = useAutomation()
+  const st = auto.data?.status
+  if (!st) return null
+  const text =
+    st.state === 'paused'
+      ? st.paused_until
+        ? t('auto.state.pausedUntil', { time: formatTime(st.paused_until, lang) })
+        : t('auto.state.pausedManual')
+      : t(`auto.state.${st.state}`)
+  return (
+    <div className={`mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-3 text-sm ${BANNER_STYLE[st.state] || ''}`}>
+      <Bot size={18} aria-hidden="true" />
+      <span>
+        <span className="font-semibold">{t('auto.statusLabel')}:</span> {text}
+      </span>
+      <Link to="/admin/automation" className="ml-auto font-semibold text-primary underline underline-offset-2">
+        {t('auto.banner.manage')}
+      </Link>
+    </div>
+  )
+}
 
 const TABS = ['pending_approval', 'draft', 'sent', 'cancelled']
 const TAB_LABEL = { pending_approval: 'warnings.tabPending', draft: 'warnings.tabDraft', sent: 'warnings.tabSent', cancelled: 'warnings.tabCancelled' }
@@ -209,6 +242,7 @@ export default function WarningsPage() {
         </Button>
       }
     >
+      <AutomationBanner />
       <Tabs label={t('warnings.title')} value={tab} onChange={setTab} tabs={TABS.map((s) => ({ value: s, label: t(TAB_LABEL[s]), count: count(s) }))} />
       {all.isLoading && <Loading />}
       {all.error && <ErrorNote error={all.error} onRetry={all.refetch} />}
