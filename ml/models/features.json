@@ -1,0 +1,103 @@
+{
+  "version": "lgbm_v1",
+  "features": [
+    "precip_lag_1h",
+    "precip_lag_3h",
+    "precip_lag_6h",
+    "precip_lag_24h",
+    "fcst_precip_1h",
+    "fcst_precip_3h",
+    "cape",
+    "rh",
+    "dewpoint_depression",
+    "surface_pressure",
+    "pressure_tendency_3h",
+    "cloud_cover_low",
+    "cloud_cover_mid",
+    "wind_speed_10m",
+    "wind_dir_sin",
+    "wind_dir_cos",
+    "hour_sin",
+    "hour_cos",
+    "month_sin",
+    "month_cos",
+    "monsoon",
+    "lat",
+    "lon"
+  ],
+  "label": "precipitation(t+1..t+3) >= 20 mm (Open-Meteo Archive)",
+  "label_mm": 20.0,
+  "forecast_model": "gfs_seamless",
+  "train": [
+    "2021-04-01",
+    "2022-12-31"
+  ],
+  "valid_end": "2023-12-31",
+  "test": [
+    "2023-12-31",
+    "2025-12-31"
+  ],
+  "zones": [
+    "city-of-elmina",
+    "denai-alam",
+    "bukit-jelutong",
+    "bukit-subang",
+    "ara-damansara",
+    "klgcc-resort",
+    "bandar-bukit-raja",
+    "putra-heights",
+    "usj-heights",
+    "serenia-city",
+    "saujana-impian",
+    "nilai-impian",
+    "bandar-ainsdale",
+    "bandar-universiti-pagoh",
+    "taman-pasir-putih"
+  ],
+  "metrics": {
+    "valid": {
+      "roc_auc": 0.7322408191091829,
+      "pr_auc": 0.036612230362363225,
+      "brier": 0.020357746907123556,
+      "positives": 443,
+      "rows": 131400
+    },
+    "test": {
+      "roc_auc": 0.7060006583598661,
+      "pr_auc": 0.026240132569574318,
+      "brier": 0.020424171490659525,
+      "positives": 1366,
+      "rows": 263115
+    }
+  },
+  "cutoffs": {
+    "amber_p": 0.612,
+    "red_p": 0.93,
+    "method": "validation alert rate: amber = top 2% of zone-hours, red = top 0.3% (~ the base rate). No threshold reached 50% precision, so the precision rule can't be used.",
+    "valid": {
+      "amber": {
+        "flagged": 0.02,
+        "precision": 0.049,
+        "recall": 0.29
+      },
+      "red": {
+        "flagged": 0.003,
+        "precision": 0.096,
+        "recall": 0.09
+      }
+    },
+    "test": {
+      "amber": {
+        "flagged": 0.0175,
+        "precision": 0.047,
+        "recall": 0.16
+      },
+      "red": {
+        "flagged": 0.002,
+        "precision": 0.1,
+        "recall": 0.04
+      }
+    }
+  },
+  "trained_at": "2026-10-22T20:19:50.239142+00:00"
+}
