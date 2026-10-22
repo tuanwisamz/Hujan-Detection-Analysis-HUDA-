@@ -36,7 +36,7 @@ class Action:
     suppressed: bool = False  # an admin rule said "off" for this announcement
 
 
-# ---- Automation rules (docs/automation-control.md §3). Pure. ----
+# ---- Automation rules (architecture.md §3.1). Pure. ----
 
 def is_paused(a: Automation, now: datetime) -> bool:
     return (not a.enabled) or (a.paused_until is not None and now < a.paused_until)

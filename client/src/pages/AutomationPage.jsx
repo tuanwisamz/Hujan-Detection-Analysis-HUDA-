@@ -8,7 +8,7 @@ import { api } from '../lib/api'
 import { useT } from '../lib/i18n'
 import { formatDateTime, formatTime } from '../lib/time'
 
-// Admin owns every Telegram announcement (docs/automation-control.md).
+// Admin owns every Telegram announcement (spec FR-34, architecture.md §3.1).
 // The radar pipeline keeps running; this page decides what gets posted, when and where.
 
 const EVENTS = ['amber', 'red', 'all_clear']

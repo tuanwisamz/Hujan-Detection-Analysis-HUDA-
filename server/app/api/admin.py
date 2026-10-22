@@ -208,7 +208,7 @@ def patch_settings(body: SettingsPatch, user: User = Depends(require_admin)):
     return merged.model_dump(mode="json")
 
 
-# ---- Automation (docs/automation-control.md) ----
+# ---- Automation (spec FR-34, architecture.md §3.1) ----
 
 def _automation_out(s: AppSettings) -> dict:
     return {"automation": s.automation.model_dump(mode="json"), "cooldown_min": s.cooldown_min,

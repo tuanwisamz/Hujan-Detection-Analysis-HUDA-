@@ -39,7 +39,7 @@ class Thresholds(BaseModel):
         return self
 
 
-# ---- Automation (docs/automation-control.md): admin owns every Telegram announcement ----
+# ---- Automation (spec FR-34, architecture.md §3.1): admin owns every Telegram announcement ----
 
 Mode = Literal["auto", "approval", "off"]  # send · hold in "Needs approval" · don't announce
 Event = Literal["amber", "red", "all_clear"]

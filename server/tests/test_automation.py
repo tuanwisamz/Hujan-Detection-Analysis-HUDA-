@@ -1,4 +1,4 @@
-"""Admin automation rules (docs/automation-control.md §3)."""
+"""Admin automation rules (architecture.md §3.1)."""
 
 from datetime import datetime, timedelta, timezone
 
