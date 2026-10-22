@@ -149,14 +149,35 @@ def test_open_meteo_retries_429_once(monkeypatch):
 
 
 def test_open_meteo_serves_stale_result_on_failure_then_gives_up(monkeypatch):
-    fake_open_meteo(monkeypatch, [FakeResponse(200, OM_BODY)] + [FakeResponse(429, {"reason": "Daily limit"})] * 4)
+    fake_open_meteo(monkeypatch, [FakeResponse(200, OM_BODY)] + [FakeResponse(429, {"reason": "Hourly limit"})] * 4)
     good = ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
     key, (ts, result) = next(iter(ingest_weather._open_meteo_cache.items()))
     ingest_weather._open_meteo_cache[key] = (ts - timedelta(hours=1), result)    # past TTL, within stale max
     assert ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"]) == good
     ingest_weather._open_meteo_cache[key] = (ts - timedelta(hours=4), result)    # too old to serve
-    with pytest.raises(httpx.HTTPStatusError, match="Daily limit"):
+    with pytest.raises(httpx.HTTPStatusError, match="Hourly limit"):
         ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+
+
+def test_open_meteo_daily_limit_serves_up_to_a_day_old(monkeypatch):
+    daily = FakeResponse(429, {"reason": "Daily API request limit exceeded. Please try again tomorrow."})
+    fake_open_meteo(monkeypatch, [FakeResponse(200, OM_BODY)] + [daily] * 4)
+    good = ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+    assert ingest_weather.last_stale_min is None
+    key, (ts, result) = next(iter(ingest_weather._open_meteo_cache.items()))
+    ingest_weather._open_meteo_cache[key] = (ts - timedelta(hours=10), result)   # beyond 3 h, within a day
+    assert ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"]) == good
+    assert 599 <= ingest_weather.last_stale_min <= 601
+    ingest_weather._open_meteo_cache[key] = (ts - timedelta(hours=25), result)
+    with pytest.raises(httpx.HTTPStatusError, match="Daily API request limit"):
+        ingest_weather.fetch_open_meteo(OM_ZONES, variables=["precipitation"])
+
+
+def test_stale_weather_does_not_degrade_the_run():
+    from app.services.pipeline import _status
+    base = {"radar": "ok", "nowcast": "ok", "met_warnings": "ok"}
+    assert _status(base | {"open_meteo": "stale"}) == "ok"
+    assert _status(base | {"open_meteo": "failed"}) == "degraded"
 
 
 def test_open_meteo_backfill_is_not_cached(monkeypatch):

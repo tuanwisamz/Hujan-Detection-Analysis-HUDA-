@@ -18,7 +18,7 @@ def _data_status(run: dict | None) -> dict:
     out = {}
     for key in SOURCE_KEYS:
         v = sources.get(key)
-        out[key] = "ok" if v in ("ok", "synthetic", "archive", "skipped") else "degraded"
+        out[key] = "ok" if v in ("ok", "stale", "synthetic", "archive", "skipped") else "degraded"
     return out
 
 
