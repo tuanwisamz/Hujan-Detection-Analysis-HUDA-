@@ -134,7 +134,7 @@ export default function ZonePanel({ zoneId, onClose, thresholds }) {
               {ex.rules_fired?.length ? (
                 <ul className="mt-1 list-disc space-y-1 pl-5">
                   {ex.rules_fired.map((r) => (
-                    <li key={r}>{describeRule(r, t)}</li>
+                    <li key={r}>{describeRule(r, t, thresholds)}</li>
                   ))}
                   {ex.wet_ground_bump && <li>{t('rule.wet_bump')}</li>}
                 </ul>

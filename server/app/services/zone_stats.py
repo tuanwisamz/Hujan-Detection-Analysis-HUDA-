@@ -60,8 +60,23 @@ def _dilate(mask: np.ndarray, px: int) -> np.ndarray:
     return out
 
 
+EMPTY = {"rain_rate_max": None, "eta_min": None, "accum_1h": None,
+         "red_sustained_min": None, "red_area_max": None, "very_heavy_sustained_min": None}
+
+
+def sustained_min(fractions: list[float], area_frac: float) -> int:
+    """Longest run of consecutive steps with at least area_frac of the zone covered, in minutes."""
+    best = run = 0
+    for f in fractions:
+        run = run + 1 if f >= area_frac else 0
+        best = max(best, run)
+    return best * STEP_MIN
+
+
 def zone_stats(current_rate: np.ndarray | None, forecast_rates: list[np.ndarray],
-               masks: dict[str, np.ndarray], heavy_mmh: float = 10.0) -> dict[str, dict]:
+               masks: dict[str, np.ndarray], heavy_mmh: float = 10.0,
+               red_mmh: float = 30.0, red_area_frac: float = 0.2,
+               very_heavy_mmh: float = 60.0, very_heavy_area_frac: float = 0.1) -> dict[str, dict]:
     """Rain stats per zone.
 
     current_rate: latest observed rain rate (mm/h) or None if radar is missing.
@@ -69,19 +84,25 @@ def zone_stats(current_rate: np.ndarray | None, forecast_rates: list[np.ndarray]
     rain_rate_max: max over now and the next 60 min. eta_min: minutes until the first
     zone pixel ≥ heavy_mmh (0 = already raining that hard; None = not within 60 min).
     accum_1h: expected rain over the next hour from the zone-mean rate (mm).
+    red_sustained_min / very_heavy_sustained_min: longest run of steps where at least
+    the given fraction of the zone is at or above that rate (implementation-plan-v2 D16).
+    red_area_max: peak fraction of the zone at or above red_mmh.
     """
     out = {}
     for zone_id, mask in masks.items():
-        if not mask.any():
-            out[zone_id] = {"rain_rate_max": None, "eta_min": None, "accum_1h": None}
-            continue
         steps = ([current_rate] if current_rate is not None else []) + list(forecast_rates)
-        if not steps:
-            out[zone_id] = {"rain_rate_max": None, "eta_min": None, "accum_1h": None}
+        if not mask.any() or not steps:
+            out[zone_id] = dict(EMPTY)
             continue
-        maxes = [float(s[mask].max()) for s in steps]
+        cells = [s[mask] for s in steps]
+        maxes = [float(c.max()) for c in cells]
+        red_frac = [float((c >= red_mmh).mean()) for c in cells]
+        very_frac = [float((c >= very_heavy_mmh).mean()) for c in cells]
         offset = 0 if current_rate is not None else 1
         eta = next(((k + offset) * STEP_MIN for k, m in enumerate(maxes) if m >= heavy_mmh), None)
         accum = sum(float(s[mask].mean()) for s in forecast_rates) * STEP_MIN / 60
-        out[zone_id] = {"rain_rate_max": round(max(maxes), 1), "eta_min": eta, "accum_1h": round(accum, 1)}
+        out[zone_id] = {"rain_rate_max": round(max(maxes), 1), "eta_min": eta, "accum_1h": round(accum, 1),
+                        "red_sustained_min": sustained_min(red_frac, red_area_frac),
+                        "red_area_max": round(max(red_frac), 2),
+                        "very_heavy_sustained_min": sustained_min(very_frac, very_heavy_area_frac)}
     return out

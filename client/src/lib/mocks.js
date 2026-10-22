@@ -262,6 +262,8 @@ const routes = [
     const next = { ...state.settings, ...b, thresholds: { ...state.settings.thresholds, ...(b.thresholds || {}) } }
     const t = next.thresholds
     if (t.amber_rate_mmh >= t.red_rate_mmh || t.amber_p >= t.red_p) throw new ApiError(422, 'VALIDATION_ERROR', 'thresholds: amber must be less than red')
+    if (t.red_rate_mmh >= t.very_heavy_mmh) throw new ApiError(422, 'VALIDATION_ERROR', 'thresholds: red_rate_mmh must be less than very_heavy_mmh')
+    if (t.gauge_amber_1h_mm >= t.gauge_red_1h_mm) throw new ApiError(422, 'VALIDATION_ERROR', 'thresholds: gauge amber must be less than gauge red')
     state.settings = next
     log('admin', 'settings updated', { fields: Object.keys(b) })
     return next

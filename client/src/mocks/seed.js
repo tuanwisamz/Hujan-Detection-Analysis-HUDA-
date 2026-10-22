@@ -46,9 +46,12 @@ const RED = {
   p_ml: 0.81,
   official_warning: 'Thunderstorm warning – Petaling',
   explanation: {
-    rule: 'nowcast_rate>=30',
-    rules_fired: ['nowcast_rate>=30', 'p_ml>=0.70', 'met_warning'],
-    wet_ground_bump: true,
+    rule: 'nowcast_sustained>=30',
+    rules_fired: ['nowcast_sustained>=30', 'p_ml>=0.70', 'met_warning'],
+    red_rules: ['nowcast_sustained>=30', 'p_ml>=0.70'],
+    wet_ground_bump: false,
+    sensor_check: 'confirmed',
+    sensors: [{ station: 'Kg. Kuang', kind: 'rain', value: 24.5, age_min: 12, distance_km: 7.8 }],
     top_features: [
       ['fcst_precip_3h', 0.31],
       ['cape', 0.22],
@@ -149,7 +152,23 @@ export function seedRuns() {
 }
 
 export const SETTINGS = {
-  thresholds: { amber_rate_mmh: 10, red_rate_mmh: 30, amber_p: 0.4, red_p: 0.7, wet_ground_mm24h: 50 },
+  thresholds: {
+    amber_rate_mmh: 10,
+    red_rate_mmh: 30,
+    amber_p: 0.4,
+    red_p: 0.7,
+    wet_ground_mm24h: 50,
+    red_area_frac: 0.2,
+    red_duration_min: 30,
+    red_accum_1h_mm: 40,
+    very_heavy_mmh: 60,
+    very_heavy_area_frac: 0.1,
+    very_heavy_duration_min: 20,
+    gauge_amber_1h_mm: 31,
+    gauge_red_1h_mm: 60,
+    gauge_red_3h_mm: 60,
+    sensor_confirm_1h_mm: 11,
+  },
   cooldown_min: 30,
   amber_requires_approval: true,
   all_clear_after_min: 30,

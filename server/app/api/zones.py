@@ -30,6 +30,8 @@ def get_zone(zone_id: str):
     if p:
         latest = {k: p.get(k) for k in ("ts", "level", "rain_rate_max", "eta_min", "accum_1h", "accum_24h",
                                         "p_ml", "official_warning", "explanation")}
+        inputs = (p.get("explanation") or {}).get("inputs") or {}
+        latest |= {k: inputs.get(k) for k in ("red_sustained_min", "red_area_max")}
     return {**zone_out(z), "latest": latest}
 
 

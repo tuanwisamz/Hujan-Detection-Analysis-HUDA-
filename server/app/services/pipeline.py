@@ -18,7 +18,7 @@ from . import alerts, classifier, ingest_radar, ingest_weather, nowcast, palette
 from .features import accum_24h, build_features, current_index
 from .grid import DbzGrid
 from .risk import classify
-from .zone_stats import zone_mask, zone_stats
+from .zone_stats import EMPTY, zone_mask, zone_stats
 
 log = logging.getLogger("huda")
 
@@ -47,11 +47,13 @@ def compute_zone_results(zones: list[dict], observed: list[DbzGrid], forecast: l
         ref = (observed or forecast)[-1]
         current = palette.dbz_to_rate(observed[-1].dbz) if observed else None
         rates = [palette.dbz_to_rate(g.dbz) for g in forecast]
-        stats = zone_stats(current, rates, _masks(zones, ref), heavy_mmh=th.amber_rate_mmh)
+        stats = zone_stats(current, rates, _masks(zones, ref), heavy_mmh=th.amber_rate_mmh,
+                           red_mmh=th.red_rate_mmh, red_area_frac=th.red_area_frac,
+                           very_heavy_mmh=th.very_heavy_mmh, very_heavy_area_frac=th.very_heavy_area_frac)
 
     results = {}
     for z in zones:
-        s = stats.get(z["id"], {"rain_rate_max": None, "eta_min": None, "accum_1h": None})
+        s = stats.get(z["id"], EMPTY)
         series = weather.get(z["id"])
         p_ml, top, acc24 = None, [], None
         if series and series.get("time"):
@@ -63,7 +65,7 @@ def compute_zone_results(zones: list[dict], observed: list[DbzGrid], forecast: l
                                    fcst=fcst if fcst_t is not None else None, fcst_t=fcst_t)
             p_ml, top = classifier.predict(feats)
         warning = met.get(z["id"])
-        level, explanation = classify(s["rain_rate_max"], p_ml, warning, acc24, th, top)
+        level, explanation = classify(s, p_ml, warning, acc24, th, top)
         official = "; ".join(x for x in (warning["title"] if warning else None, flood.get(z["id"])) if x) or None
         results[z["id"]] = {"zone_id": z["id"], "rain_rate_max": s["rain_rate_max"], "eta_min": s["eta_min"],
                             "accum_1h": s["accum_1h"], "accum_24h": acc24, "p_ml": p_ml,

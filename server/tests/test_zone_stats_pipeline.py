@@ -53,9 +53,23 @@ def test_zone_stats_eta_and_max():
     dry, wet = np.zeros((h, w), np.float32), np.zeros((h, w), np.float32)
     wet[mask["z"]] = 35.0
     s = zone_stats(dry, [dry, dry, wet, dry, dry, dry], mask)["z"]
-    assert s == {"rain_rate_max": 35.0, "eta_min": 30, "accum_1h": 5.8}
+    assert s == {"rain_rate_max": 35.0, "eta_min": 30, "accum_1h": 5.8,
+                 "red_sustained_min": 10, "red_area_max": 1.0, "very_heavy_sustained_min": 0}
     assert zone_stats(wet, [dry] * 6, mask)["z"]["eta_min"] == 0
     assert zone_stats(dry, [dry] * 6, mask)["z"]["eta_min"] is None
+
+
+def test_zone_stats_sustained_needs_area_and_consecutive_steps():
+    b = region_bounds()
+    m = zone_mask(ELMINA, b)
+    h, w = b.shape
+    dry, full, spike = (np.zeros((h, w), np.float32) for _ in range(3))
+    full[m] = 35.0
+    spike[np.argwhere(m)[0][0], np.argwhere(m)[0][1]] = 273.0  # one noisy pixel
+    s = zone_stats(full, [full, dry, full, full, full, dry], {"z": m})["z"]
+    assert s["red_sustained_min"] == 30  # longest run is 3 steps, not 4 in total
+    s = zone_stats(spike, [spike] * 6, {"z": m})["z"]
+    assert s["rain_rate_max"] == 273.0 and s["red_sustained_min"] == 0 and s["very_heavy_sustained_min"] == 0
 
 
 def test_phase_correlation_finds_shift():
@@ -91,7 +105,8 @@ def test_synthetic_storm_turns_elmina_red_end_to_end():
     results = compute_zone_results([ELMINA, PASIR_PUTIH], observed, forecast, {}, {}, {}, AppSettings(), NOW)
     elmina = results["elmina"]
     assert elmina["level"] == Level.RED.value
-    assert elmina["explanation"]["rule"] == "nowcast_rate>=30"
+    assert elmina["explanation"]["rule"] == "nowcast_sustained>=30"
+    assert elmina["explanation"]["inputs"]["red_sustained_min"] >= 30
     assert 10 <= elmina["eta_min"] <= 30
     assert elmina["rain_rate_max"] >= 30
     assert results["pp"]["level"] == Level.GREEN.value

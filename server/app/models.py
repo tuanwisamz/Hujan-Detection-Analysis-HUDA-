@@ -29,6 +29,18 @@ class Thresholds(BaseModel):
     amber_p: float = Field(0.4, ge=0, le=1)
     red_p: float = Field(0.7, ge=0, le=1)
     wet_ground_mm24h: float = Field(50, ge=0, le=500)
+    # RED needs duration + area, accumulation or a very heavy core (implementation-plan-v2 D16)
+    red_area_frac: float = Field(0.2, ge=0.05, le=1)
+    red_duration_min: int = Field(30, ge=10, le=60)
+    red_accum_1h_mm: float = Field(40, ge=5, le=200)
+    very_heavy_mmh: float = Field(60, ge=0, le=150)
+    very_heavy_area_frac: float = Field(0.1, ge=0.05, le=1)
+    very_heavy_duration_min: int = Field(20, ge=10, le=60)
+    # JPS gauges and river stations (D18–D19)
+    gauge_amber_1h_mm: float = Field(31, ge=1, le=200)
+    gauge_red_1h_mm: float = Field(60, ge=1, le=300)
+    gauge_red_3h_mm: float = Field(60, ge=1, le=500)
+    sensor_confirm_1h_mm: float = Field(11, ge=1, le=100)
 
     @model_validator(mode="after")
     def amber_below_red(self):
@@ -36,6 +48,13 @@ class Thresholds(BaseModel):
             raise ValueError("amber_rate_mmh must be less than red_rate_mmh")
         if self.amber_p >= self.red_p:
             raise ValueError("amber_p must be less than red_p")
+        if self.red_rate_mmh >= self.very_heavy_mmh:
+            raise ValueError("red_rate_mmh must be less than very_heavy_mmh")
+        if self.gauge_amber_1h_mm >= self.gauge_red_1h_mm:
+            raise ValueError("gauge_amber_1h_mm must be less than gauge_red_1h_mm")
+        for k in ("red_duration_min", "very_heavy_duration_min"):
+            if getattr(self, k) % 10:
+                raise ValueError(f"{k} must be a multiple of 10 (the radar step)")
         return self
 
 

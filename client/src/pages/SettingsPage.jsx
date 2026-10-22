@@ -109,11 +109,15 @@ function AdminSettings() {
   const set = (k) => (v) => setDraft({ ...s, [k]: v })
   const rateErr = Number(th.amber_rate_mmh) >= Number(th.red_rate_mmh) ? t('settings.error.order') : null
   const pErr = Number(th.amber_p) >= Number(th.red_p) ? t('settings.error.order') : null
+  const veryErr = Number(th.red_rate_mmh) >= Number(th.very_heavy_mmh) ? t('settings.error.veryHeavy') : null
+  const gaugeErr = Number(th.gauge_amber_1h_mm) >= Number(th.gauge_red_1h_mm) ? t('settings.error.order') : null
+  const stepErr = (k) => (Number(th[k]) % 10 ? t('settings.error.step10') : null)
+  const errors = [rateErr, pErr, veryErr, gaugeErr, stepErr('red_duration_min'), stepErr('very_heavy_duration_min')]
   const sources = runs.data?.items?.[0]?.sources || {}
 
   const submit = (e) => {
     e.preventDefault()
-    if (rateErr || pErr) return
+    if (errors.some(Boolean)) return
     const body = {
       thresholds: Object.fromEntries(Object.entries(th).map(([k, v]) => [k, Number(v)])),
       pipeline_enabled: s.pipeline_enabled,
@@ -131,6 +135,26 @@ function AdminSettings() {
           <NumberField label={t('settings.amberP')} value={th.amber_p} onChange={setTh('amber_p')} min={0} max={1} step={0.01} error={pErr} />
           <NumberField label={t('settings.redP')} value={th.red_p} onChange={setTh('red_p')} min={0} max={1} step={0.01} />
           <NumberField label={t('settings.wet')} value={th.wet_ground_mm24h} onChange={setTh('wet_ground_mm24h')} min={0} max={500} />
+        </div>
+      </Panel>
+      <Panel title={t('settings.redNeeds')}>
+        <p className="mb-3 text-sm text-muted">{t('settings.redNeedsIntro')}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <NumberField label={t('settings.redArea')} value={th.red_area_frac} onChange={setTh('red_area_frac')} min={0.05} max={1} step={0.05} />
+          <NumberField label={t('settings.redDuration')} value={th.red_duration_min} onChange={setTh('red_duration_min')} min={10} max={60} step={10} error={stepErr('red_duration_min')} />
+          <NumberField label={t('settings.redAccum')} value={th.red_accum_1h_mm} onChange={setTh('red_accum_1h_mm')} min={5} max={200} />
+          <NumberField label={t('settings.veryHeavy')} value={th.very_heavy_mmh} onChange={setTh('very_heavy_mmh')} min={0} max={150} error={veryErr} />
+          <NumberField label={t('settings.veryHeavyArea')} value={th.very_heavy_area_frac} onChange={setTh('very_heavy_area_frac')} min={0.05} max={1} step={0.05} />
+          <NumberField label={t('settings.veryHeavyDuration')} value={th.very_heavy_duration_min} onChange={setTh('very_heavy_duration_min')} min={10} max={60} step={10} error={stepErr('very_heavy_duration_min')} />
+        </div>
+      </Panel>
+      <Panel title={t('settings.sensorThresholds')}>
+        <p className="mb-3 text-sm text-muted">{t('settings.sensorThresholdsIntro')}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <NumberField label={t('settings.gaugeAmber')} value={th.gauge_amber_1h_mm} onChange={setTh('gauge_amber_1h_mm')} min={1} max={200} error={gaugeErr} />
+          <NumberField label={t('settings.gaugeRed')} value={th.gauge_red_1h_mm} onChange={setTh('gauge_red_1h_mm')} min={1} max={300} />
+          <NumberField label={t('settings.gaugeRed3h')} value={th.gauge_red_3h_mm} onChange={setTh('gauge_red_3h_mm')} min={1} max={500} />
+          <NumberField label={t('settings.sensorConfirm')} value={th.sensor_confirm_1h_mm} onChange={setTh('sensor_confirm_1h_mm')} min={1} max={100} />
         </div>
       </Panel>
       <Panel title={t('settings.alerts')}>
@@ -152,7 +176,7 @@ function AdminSettings() {
           ))}
         </ul>
       </Panel>
-      <Button type="submit" busy={save.isPending} disabled={!draft || !!rateErr || !!pErr}>
+      <Button type="submit" busy={save.isPending} disabled={!draft || errors.some(Boolean)}>
         {t('settings.save')}
       </Button>
     </form>
