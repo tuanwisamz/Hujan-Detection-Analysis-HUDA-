@@ -113,7 +113,7 @@ def _sensor_evidence(zones: list[dict], now: datetime, sources: dict) -> dict[st
 
 def _status(sources: dict) -> str:
     core = [sources.get(k) for k in ("radar", "open_meteo", "nowcast")]
-    if all(v in ("ok", "synthetic", "archive") for v in core) and sources.get("met_warnings") in ("ok", "skipped"):
+    if all(v in ("ok", "stale", "synthetic", "archive") for v in core) and sources.get("met_warnings") in ("ok", "skipped"):
         return "ok"
     return "degraded"
 
@@ -166,7 +166,10 @@ def run(run_id: str, backfill_ts: datetime | None = None, fixture: str | None = 
         weather_fcst: dict = {}
         try:
             weather = ingest_weather.fetch_open_meteo(zones, at=backfill_ts)
-            sources["open_meteo"] = "ok"
+            age = ingest_weather.last_stale_min if not backfill_ts else None
+            sources["open_meteo"] = "stale" if age is not None else "ok"
+            if age is not None:  # Open-Meteo limited this IP; the last good forecast is still in use
+                sources["open_meteo_age_min"] = age
         except Exception as exc:  # noqa: BLE001
             sources["open_meteo"] = "failed"
             repo.log_event("ingest", f"Open-Meteo failed: {exc}", "error", meta={"run_id": run_id})

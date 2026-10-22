@@ -25,8 +25,12 @@ SEVERE_WORDS = ("danger", "severe", "bahaya", "teruk")
 # shared egress IPs (Render free) hit its per-IP limits (429). Backfill is never cached.
 OPEN_METEO_TTL = timedelta(minutes=30)
 OPEN_METEO_STALE_MAX = timedelta(hours=3)   # on failure, serve the last good result up to this old
+# The daily limit only resets at 00:00 UTC. The last result still covers the next 48 h
+# (forecast_days=2), so it stays usable for a day; runs record it as "stale" with its age.
+OPEN_METEO_DAILY_STALE_MAX = timedelta(hours=24)
 OPEN_METEO_RETRY_S = 10.0
 _open_meteo_cache: dict[tuple, tuple[datetime, dict]] = {}
+last_stale_min: int | None = None  # age of the result the last live call served, None if fresh
 
 
 def _parse_hourly(loc: dict, variables: list[str]) -> dict:
@@ -65,16 +69,20 @@ def fetch_open_meteo(zones: list[dict], at: datetime | None = None, model: str |
     if at is not None:
         return _parse_locations(zones, _get_open_meteo(url, params), variables)
 
+    global last_stale_min
     key = tuple(sorted(params.items()))
     now = datetime.now(timezone.utc)
     hit = _open_meteo_cache.get(key)
+    last_stale_min = None
     if hit and now - hit[0] < OPEN_METEO_TTL:
         return hit[1]
     try:
         result = _parse_locations(zones, _get_open_meteo(url, params), variables)
     except httpx.HTTPError as exc:
-        if hit and now - hit[0] < OPEN_METEO_STALE_MAX:
+        limit = OPEN_METEO_DAILY_STALE_MAX if "daily" in str(exc).lower() else OPEN_METEO_STALE_MAX
+        if hit and now - hit[0] < limit:
             log.warning("Open-Meteo failed (%s); using result from %s", exc, hit[0].isoformat())
+            last_stale_min = int((now - hit[0]).total_seconds() // 60)
             return hit[1]
         raise
     _open_meteo_cache[key] = (now, result)
