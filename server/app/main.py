@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import errors
-from .api import admin, agent, feeds, internal, live, me, reports, sensors, system, zones
+from .api import admin, agent, feeds, internal, live, me, reports, sensors, sirens, system, zones
 from .config import get_settings
 from .services import classifier
 
@@ -31,7 +31,7 @@ app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=Fals
                    allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Request-ID"])
 errors.install(app)
 
-for module in (system, me, live, zones, feeds, admin, sensors, reports, agent, internal):
+for module in (system, me, live, zones, feeds, admin, sensors, sirens, reports, agent, internal):
     app.include_router(module.router, prefix=API_PREFIX)
 
 

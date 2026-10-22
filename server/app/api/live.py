@@ -22,14 +22,14 @@ def _data_status(run: dict | None) -> dict:
     return out
 
 
-def zone_live(z: dict, p: dict | None, subscribed: bool) -> dict:
+def zone_live(z: dict, p: dict | None, subscribed: bool, siren_active: bool = False) -> dict:
     p = p or {}
     return {"id": z["id"], "name": z["name"], "slug": z["slug"], "state": z.get("state"),
             "district": z.get("district"), "lat": z["lat"], "lon": z["lon"], "radius_m": z.get("radius_m"),
             "polygon": z.get("polygon"), "level": p.get("level"), "rain_rate_max": p.get("rain_rate_max"),
             "eta_min": p.get("eta_min"), "p_ml": p.get("p_ml"), "official_warning": p.get("official_warning"),
             "replay": bool((p.get("explanation") or {}).get("replay_of")),
-            "sensor_check": (p.get("explanation") or {}).get("sensor_check"),
+            "sensor_check": (p.get("explanation") or {}).get("sensor_check"), "siren_active": siren_active,
             "subscribed": subscribed, "updated_at": p.get("ts")}
 
 
@@ -38,7 +38,11 @@ def live_summary(user: User = Depends(default_limit)):
     zones = repo.list_zones()
     latest = repo.latest_predictions()
     subscribed = {s["zone_id"] for s in repo.get_subscriptions(user.id)}
-    items = [zone_live(z, latest.get(z["id"]), z["id"] in subscribed) for z in zones]
+    try:  # works before migration 0004 too
+        sounding = {a["zone_id"] for a in repo.open_siren_activations() if a["status"] == "active"}
+    except Exception:  # noqa: BLE001
+        sounding = set()
+    items = [zone_live(z, latest.get(z["id"]), z["id"] in subscribed, z["id"] in sounding) for z in zones]
     items.sort(key=lambda z: (not z["subscribed"], z["name"]))  # subscribed zones pinned first
     counts = {"GREEN": 0, "AMBER": 0, "RED": 0}
     for z in items:

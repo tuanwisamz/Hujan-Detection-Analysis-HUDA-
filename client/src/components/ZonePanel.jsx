@@ -1,4 +1,4 @@
-import { Bell, BellRing, X } from 'lucide-react'
+import { Bell, BellRing, Siren, X } from 'lucide-react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useSubscriptions, usePutSubscriptions, useTimeseries, useZone } from '../hooks/queries'
 import { level } from '../lib/levels'
@@ -102,6 +102,12 @@ export default function ZonePanel({ zoneId, onClose, thresholds }) {
         {zone.error && <ErrorNote error={zone.error} onRetry={zone.refetch} />}
         {z && (
           <>
+            {z.siren_active && (
+              <p role="alert" className="mb-3 flex items-center gap-2 rounded-xl bg-level-red px-4 py-3 font-bold text-white">
+                <Siren size={20} aria-hidden="true" />
+                {t('zone.sirenActive')}
+              </p>
+            )}
             {/* Zone → Level → Action */}
             <div className="rounded-xl p-4" style={{ background: l.soft }}>
               <RiskBadge value={p.level} size="lg" />

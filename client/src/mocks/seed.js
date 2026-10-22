@@ -176,12 +176,13 @@ export const SETTINGS = {
   automation: {
     enabled: true,
     paused_until: null,
-    modes: { amber: 'approval', red: 'auto', all_clear: 'auto' },
+    modes: { amber: 'approval', red: 'auto', all_clear: 'auto', siren: 'approval' },
     quiet_hours: { enabled: false, start: '23:00', end: '06:00', events: ['amber', 'all_clear'] },
     zone_overrides: {},
     use_ai_text: true,
     send_dms: true,
     auto_expires_min: 120,
+    siren: { max_on_min: 30, approval_expires_min: 15 },
   },
 }
 
@@ -227,5 +228,19 @@ export function seedSensors() {
     st('3015090', 'rain', 'Subang', 'Petaling', 'verified', 'admin', 9.1, { rain_1h_mm: 8.0, rain_today_mm: 12, age_min: 92 }),
     st('3115082', 'river', 'Sg. Buloh di Kg. Melayu', 'Petaling', 'verified', 'datagovmy', 5.5, { water_level_m: 6.21, indicator: 'ALERT', age_min: 20 }),
     st('PASGYU1', 'river', 'Sg. Pasir Gayu', 'Petaling', 'grid', null, 12.0, null, { lat: null, lon: null }),
+  ]
+}
+
+export function seedSirens() {
+  return [
+    { id: 's1', zone_id: 'z01', name: 'Elmina Central Park siren', endpoint_url: null, active: true, note: 'Virtual until the controller is installed', created_at: ago(2880) },
+    { id: 's2', zone_id: 'z03', name: 'Bukit Jelutong lake siren', endpoint_url: 'https://controller.example/huda', active: true, note: null, created_at: ago(2880) },
+  ]
+}
+
+export function seedSirenActs() {
+  return [
+    { id: 'a2', siren_id: 's1', zone_id: 'z01', status: 'pending_approval', source: 'auto', rule: 'nowcast_sustained>=30', reason: 'siren rule: approval', created_at: ago(3) },
+    { id: 'a1', siren_id: 's2', zone_id: 'z03', status: 'stopped', source: 'manual', reason: 'Drill', created_at: ago(1500), started_at: ago(1500), stopped_at: ago(1495), stop_reason: 'admin' },
   ]
 }

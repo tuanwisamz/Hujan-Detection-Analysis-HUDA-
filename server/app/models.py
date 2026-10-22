@@ -61,8 +61,8 @@ class Thresholds(BaseModel):
 # ---- Automation (spec FR-34, architecture.md §3.1): admin owns every Telegram announcement ----
 
 Mode = Literal["auto", "approval", "off"]  # send · hold in "Needs approval" · don't announce
-Event = Literal["amber", "red", "all_clear"]
-EVENTS = ("amber", "red", "all_clear")
+Event = Literal["amber", "red", "all_clear", "siren"]
+EVENTS = ("amber", "red", "all_clear", "siren")
 HHMM = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
 
 
@@ -70,6 +70,12 @@ class EventModes(BaseModel):
     amber: Mode = "auto"
     red: Mode = "auto"
     all_clear: Mode = "auto"
+    siren: Mode = "approval"  # a false siren is costly (implementation-plan-v2 D23)
+
+
+class SirenTiming(BaseModel):
+    max_on_min: int = Field(30, ge=5, le=120)            # a sounding siren stops after this
+    approval_expires_min: int = Field(15, ge=5, le=60)   # a late siren does more harm than none
 
 
 class QuietHours(BaseModel):
@@ -96,6 +102,7 @@ class Automation(BaseModel):
     use_ai_text: bool = True
     send_dms: bool = True
     auto_expires_min: int = Field(120, ge=15, le=1440)
+    siren: SirenTiming = SirenTiming()
 
     @model_validator(mode="after")
     def utc(self):
@@ -108,6 +115,12 @@ class EventModesPatch(BaseModel):
     amber: Mode | None = None
     red: Mode | None = None
     all_clear: Mode | None = None
+    siren: Mode | None = None
+
+
+class SirenTimingPatch(BaseModel):
+    max_on_min: int | None = Field(None, ge=5, le=120)
+    approval_expires_min: int | None = Field(None, ge=5, le=60)
 
 
 class QuietHoursPatch(BaseModel):
@@ -121,6 +134,7 @@ class AutomationPatch(BaseModel):
     enabled: bool | None = None
     modes: EventModesPatch | None = None
     quiet_hours: QuietHoursPatch | None = None
+    siren: SirenTimingPatch | None = None
     zone_overrides: dict[str, Literal["approval", "off"]] | None = None  # replaces the whole map
     use_ai_text: bool | None = None
     send_dms: bool | None = None
@@ -236,6 +250,26 @@ class WarningIn(BaseModel):
     message_en: str | None = Field(None, max_length=600)
     message_ms: str | None = Field(None, max_length=600)
     expires_in_min: int = Field(120, ge=5, le=1440)
+
+
+class SirenIn(BaseModel):
+    zone_id: str
+    name: str = Field(min_length=1, max_length=120)
+    endpoint_url: str | None = Field(None, pattern=r"^https://", max_length=500)  # None = virtual siren
+    active: bool = True
+    note: str | None = Field(None, max_length=300)
+
+
+class SirenPatch(BaseModel):
+    zone_id: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=120)
+    endpoint_url: str | None = Field(None, pattern=r"^https://", max_length=500)
+    active: bool | None = None
+    note: str | None = Field(None, max_length=300)
+
+
+class SoundBody(BaseModel):
+    reason: str = Field(min_length=3, max_length=300)
 
 
 class WarningTextPatch(BaseModel):

@@ -21,6 +21,18 @@ def test_agents_never_import_risk_engine():
                 assert not any(a.name.endswith("risk") for a in node.names), path.name
 
 
+def test_agents_never_import_sirens():
+    """Only the pipeline and admins sound a siren (implementation-plan-v2 §6.3)."""
+    for path in AGENTS_DIR.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                names = [a.name for a in node.names]
+                assert not ((node.module or "").endswith("sirens") or "sirens" in names), path.name
+            if isinstance(node, ast.Import):
+                assert not any(a.name.endswith("sirens") for a in node.names), path.name
+
+
 def test_agents_never_write_predictions():
     for path in AGENTS_DIR.glob("*.py"):
         src = path.read_text(encoding="utf-8")

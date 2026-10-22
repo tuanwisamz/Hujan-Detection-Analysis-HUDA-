@@ -15,7 +15,7 @@ from .. import repo
 from ..config import get_settings
 from ..models import AppSettings, Level
 from . import (alerts, classifier, ingest_radar, ingest_sensors, ingest_weather, nowcast, palette, sensors,
-               storage, synthetic)
+               sirens, storage, synthetic)
 from .features import accum_24h, build_features, current_index
 from .grid import DbzGrid
 from .risk import classify
@@ -230,6 +230,13 @@ def run(run_id: str, backfill_ts: datetime | None = None, fixture: str | None = 
         except Exception as exc:  # noqa: BLE001
             sources["alerts"] = "failed"
             repo.log_event("alert", f"alert manager failed: {exc}", "error", meta={"run_id": run_id})
+
+        # 7b. Sirens (v2 §6.3)
+        try:
+            sirens.process_run(run_id, {z["id"]: z for z in zones}, results, settings)
+        except Exception as exc:  # noqa: BLE001
+            sources["sirens"] = "failed"
+            repo.log_event("siren", f"siren manager failed: {exc}", "error", meta={"run_id": run_id})
 
         # Housekeeping (D9)
         if not replay:

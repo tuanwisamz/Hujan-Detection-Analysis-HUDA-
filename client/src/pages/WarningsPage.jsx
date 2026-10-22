@@ -2,6 +2,7 @@ import { Bot, Megaphone, Plus, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import RiskBadge from '../components/RiskBadge'
+import SirenApprovals from '../components/SirenApprovals'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorNote, Field, inputClass, Loading, Page, Tabs, useToast } from '../components/ui'
 import { useApiMutation, useAutomation, useWarnings, useZones } from '../hooks/queries'
 import { api } from '../lib/api'
@@ -243,6 +244,7 @@ export default function WarningsPage() {
       }
     >
       <AutomationBanner />
+      {tab === 'pending_approval' && <SirenApprovals />}
       <Tabs label={t('warnings.title')} value={tab} onChange={setTab} tabs={TABS.map((s) => ({ value: s, label: t(TAB_LABEL[s]), count: count(s) }))} />
       {all.isLoading && <Loading />}
       {all.error && <ErrorNote error={all.error} onRetry={all.refetch} />}

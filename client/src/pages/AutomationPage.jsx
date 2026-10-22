@@ -11,8 +11,8 @@ import { formatDateTime, formatTime } from '../lib/time'
 // Admin owns every Telegram announcement (spec FR-34, architecture.md §3.1).
 // The radar pipeline keeps running; this page decides what gets posted, when and where.
 
-const EVENTS = ['amber', 'red', 'all_clear']
-const EVENT_LEVEL = { amber: 'AMBER', red: 'RED', all_clear: 'GREEN' }
+const EVENTS = ['amber', 'red', 'all_clear', 'siren']
+const EVENT_LEVEL = { amber: 'AMBER', red: 'RED', all_clear: 'GREEN', siren: 'RED' }
 const MODES = ['auto', 'approval', 'off']
 const PAUSES = [60, 180, 720]
 const INVALIDATE = ['automation', 'settings', 'warnings', 'automationActivity']
@@ -33,6 +33,7 @@ function editable(data) {
     use_ai_text: a.use_ai_text,
     send_dms: a.send_dms,
     auto_expires_min: a.auto_expires_min,
+    siren: { ...a.siren },
     cooldown_min: data.cooldown_min,
     all_clear_after_min: data.all_clear_after_min,
   }
@@ -75,7 +76,7 @@ function StatusCard({ data }) {
         </div>
       </div>
 
-      <ul className="mt-4 grid gap-2 sm:grid-cols-3">
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {EVENTS.map((e) => (
           <li key={e} className="rounded-lg bg-surface/80 px-3 py-2">
             <EventName event={e} />
@@ -279,13 +280,23 @@ export default function AutomationPage() {
     ['all_clear_after_min', 0, 1440],
     ['auto_expires_min', 15, 1440],
   ]
-  const numsBad = nums.some(([k, min, max]) => s[k] === '' || Number.isNaN(Number(s[k])) || Number(s[k]) < min || Number(s[k]) > max)
+  const sirenNums = [
+    ['max_on_min', 5, 120],
+    ['approval_expires_min', 5, 60],
+  ]
+  const bad = (v, min, max) => v === '' || Number.isNaN(Number(v)) || Number(v) < min || Number(v) > max
+  const numsBad = nums.some(([k, min, max]) => bad(s[k], min, max)) || sirenNums.some(([k, min, max]) => bad(s.siren[k], min, max))
+  const setSiren = (k) => (v) => setDraft({ ...s, siren: { ...s.siren, [k]: v } })
   const overrideCount = Object.keys(s.zone_overrides).length
 
   const submit = (e) => {
     e.preventDefault()
     if (quietBad || numsBad) return
-    const body = { ...s, ...Object.fromEntries(nums.map(([k]) => [k, Number(s[k])])) }
+    const body = {
+      ...s,
+      ...Object.fromEntries(nums.map(([k]) => [k, Number(s[k])])),
+      siren: Object.fromEntries(sirenNums.map(([k]) => [k, Number(s.siren[k])])),
+    }
     save.mutate(body, {
       onSuccess: () => (setDraft(null), toast(t('auto.saved'))),
       onError: (err) => toast(err.message, 'error'),
@@ -311,6 +322,11 @@ export default function AutomationPage() {
                   {e === 'red' && s.modes.red === 'off' && (
                     <p role="alert" className="rounded-lg bg-level-red-soft px-3 py-2 text-sm font-semibold text-level-red sm:col-span-2">
                       {t('auto.redOffWarning')}
+                    </p>
+                  )}
+                  {e === 'siren' && s.modes.siren === 'auto' && (
+                    <p role="alert" className="rounded-lg bg-level-amber-soft px-3 py-2 text-sm font-semibold sm:col-span-2">
+                      {t('auto.sirenAutoWarning')}
                     </p>
                   )}
                 </li>
@@ -351,6 +367,10 @@ export default function AutomationPage() {
               <NumberField label={t('auto.cooldown')} value={s.cooldown_min} onChange={set('cooldown_min')} min={0} max={1440} />
               <NumberField label={t('auto.allClear')} value={s.all_clear_after_min} onChange={set('all_clear_after_min')} min={0} max={1440} />
               <NumberField label={t('auto.expires')} value={s.auto_expires_min} onChange={set('auto_expires_min')} min={15} max={1440} />
+            </div>
+            <div className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-3">
+              <NumberField label={t('auto.sirenMaxOn')} value={s.siren.max_on_min} onChange={setSiren('max_on_min')} min={5} max={120} />
+              <NumberField label={t('auto.sirenApprovalExpires')} value={s.siren.approval_expires_min} onChange={setSiren('approval_expires_min')} min={5} max={60} />
             </div>
           </Panel>
 

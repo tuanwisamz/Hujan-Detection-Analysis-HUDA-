@@ -33,7 +33,11 @@ def get_zone(zone_id: str):
         inputs = (p.get("explanation") or {}).get("inputs") or {}
         latest |= {k: inputs.get(k) for k in ("red_sustained_min", "red_area_max")}
     sensors = ((p or {}).get("explanation") or {}).get("sensors") or []
-    return {**zone_out(z), "latest": latest, "sensors": sensors}
+    try:  # works before migration 0004 too
+        siren_active = any(a["status"] == "active" for a in repo.open_siren_activations(z["id"]))
+    except Exception:  # noqa: BLE001
+        siren_active = False
+    return {**zone_out(z), "latest": latest, "sensors": sensors, "siren_active": siren_active}
 
 
 @router.get("/{zone_id}/timeseries")

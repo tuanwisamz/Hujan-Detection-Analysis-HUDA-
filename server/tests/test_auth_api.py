@@ -125,9 +125,15 @@ def test_editing_one_language_keeps_the_other(client, monkeypatch):
 @pytest.mark.parametrize("method, path", [
     ("get", "/api/v1/admin/sensors"),
     ("patch", "/api/v1/admin/sensors/jps-rain:3717101"),
+    ("get", "/api/v1/admin/sirens"),
+    ("post", "/api/v1/admin/sirens"),
+    ("post", "/api/v1/admin/sirens/s1/sound"),
+    ("post", "/api/v1/admin/sirens/s1/test"),
+    ("get", "/api/v1/admin/siren-activations"),
+    ("post", "/api/v1/admin/siren-activations/a1/approve"),
 ])
 def test_sensor_routes_are_admin_only(client, method, path):
-    r = getattr(client, method)(path, headers={"Authorization": f"Bearer {token()}"}, **({"json": {}} if method == "patch" else {}))
+    r = getattr(client, method)(path, headers={"Authorization": f"Bearer {token()}"}, **({"json": {}} if method in ("patch", "post") else {}))
     assert r.status_code == 403
 
 

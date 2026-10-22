@@ -1,6 +1,6 @@
 // In-memory mock of the HUDA API (api-spec.md). Lets the frontend run with no backend:
 // VITE_USE_MOCKS=true. State resets on reload.
-import { ago, iso, REPORT_MD, seedLogs, seedPredictions, seedRuns, seedSensors, seedWarnings, SETTINGS, ZONES } from '../mocks/seed'
+import { ago, iso, REPORT_MD, seedLogs, seedPredictions, seedRuns, seedSensors, seedSirenActs, seedSirens, seedWarnings, SETTINGS, ZONES } from '../mocks/seed'
 import { ApiError } from './api'
 
 const state = {
@@ -11,6 +11,8 @@ const state = {
   runs: seedRuns(),
   settings: structuredClone(SETTINGS),
   sensors: seedSensors(),
+  sirens: seedSirens(),
+  sirenActs: seedSirenActs(),
   subs: [{ zone_id: 'z01', min_level: 'AMBER' }, { zone_id: 'z02', min_level: 'AMBER' }],
   me: { id: 'user_demo', email: 'demo@huda.my', full_name: 'Demo User', language: 'en', telegram_linked: false, onboarded: true },
   reports: [
@@ -22,7 +24,7 @@ const state = {
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Mirrors server/app/services/alerts.py resolve_mode / automation_status.
-const EVENTS = ['amber', 'red', 'all_clear']
+const EVENTS = ['amber', 'red', 'all_clear', 'siren']
 function automationStatus(s) {
   const a = s.automation
   const now = Date.now()
@@ -38,7 +40,7 @@ function automationStatus(s) {
     if (m === 'auto' && (paused || (quiet && q.events.includes(e)))) return 'approval'
     return m
   }
-  const current = EVENTS.every((e) => a.modes[e] === 'off') ? 'off' : paused ? 'paused' : quiet && q.events.length ? 'quiet_hours' : 'active'
+  const current = ['amber', 'red', 'all_clear'].every((e) => a.modes[e] === 'off') ? 'off' : paused ? 'paused' : quiet && q.events.length ? 'quiet_hours' : 'active'
   return {
     state: current,
     paused_until: a.enabled && paused ? a.paused_until : null,
@@ -53,7 +55,8 @@ const automationOut = () => ({
   all_clear_after_min: state.settings.all_clear_after_min,
   pipeline_enabled: state.settings.pipeline_enabled,
   status: automationStatus(state.settings),
-  pending_count: state.warnings.filter((w) => w.status === 'pending_approval').length,
+  pending_count:
+    state.warnings.filter((w) => w.status === 'pending_approval').length + state.sirenActs.filter((a) => a.status === 'pending_approval').length,
 })
 const role = () => {
   try {
@@ -74,9 +77,19 @@ const live = (z) => {
     official_warning: p.official_warning ?? null,
     replay: false,
     sensor_check: p.explanation?.sensor_check ?? null,
+    siren_active: state.sirenActs.some((a) => a.zone_id === z.id && a.status === 'active'),
     subscribed: state.subs.some((s) => s.zone_id === z.id),
     updated_at: p.ts ?? null,
   }
+}
+const activationOut = (a) => {
+  const s = state.sirens.find((x) => x.id === a.siren_id)
+  return { ...a, siren_name: s?.name, zone_name: zone(a.zone_id)?.name, virtual: !s?.endpoint_url }
+}
+const sirenOut = (s) => {
+  const last = state.sirenActs.find((a) => a.siren_id === s.id)
+  const st = last && ['pending_approval', 'active', 'failed'].includes(last.status) ? last.status : 'idle'
+  return { ...s, zone_name: zone(s.zone_id)?.name, virtual: !s.endpoint_url, state: st, last_activation: last || null }
 }
 const warningOut = (w) => ({ ...w, zone: zone(w.zone_id)?.name, zone_slug: zone(w.zone_id)?.slug })
 const log = (category, message, meta = {}) =>
@@ -170,7 +183,7 @@ const routes = [
   ['GET', /^\/zones\/([^/]+)$/, ([id]) => {
     const z = zone(id)
     if (!z) throw new ApiError(404, 'NOT_FOUND', 'Zone not found')
-    return { ...z, latest: state.predictions[z.id], sensors: state.predictions[z.id]?.explanation?.sensors || [] }
+    return { ...z, latest: state.predictions[z.id], sensors: state.predictions[z.id]?.explanation?.sensors || [], siren_active: state.sirenActs.some((a) => a.zone_id === z.id && a.status === 'active') }
   }],
   ['GET', /^\/zones\/([^/]+)\/timeseries$/, ([id], q) => timeseries(zone(id).id, Number(q.hours || 6))],
   ['GET', /^\/alerts$/, (_m, q) => {
@@ -274,6 +287,60 @@ const routes = [
     Object.assign(s, b, b.lat != null ? { location_quality: 'verified', location_source: 'admin' } : {})
     log('admin', `sensor station updated: ${s.name}`, { station_id: s.id })
     return s
+  }],
+  ['GET', /^\/admin\/sirens$/, () => {
+    requireAdmin()
+    return { items: state.sirens.map(sirenOut) }
+  }],
+  ['POST', /^\/admin\/sirens$/, (_m, _q, b) => {
+    requireAdmin()
+    if (!zone(b.zone_id)) throw new ApiError(422, 'VALIDATION_ERROR', 'Unknown zone')
+    const s = { ...b, id: `s${Date.now()}`, created_at: iso(Date.now()) }
+    state.sirens.push(s)
+    log('admin', `siren added: ${s.name}`, { siren_id: s.id })
+    return s
+  }],
+  ['PATCH', /^\/admin\/sirens\/([^/]+)$/, ([id], _q, b) => {
+    requireAdmin()
+    const s = state.sirens.find((x) => x.id === id)
+    if (!s) throw new ApiError(404, 'NOT_FOUND', 'Siren not found')
+    Object.assign(s, b)
+    log('admin', `siren updated: ${s.name}`, { siren_id: id })
+    return s
+  }],
+  ['POST', /^\/admin\/sirens\/([^/]+)\/test$/, async ([id]) => {
+    requireAdmin()
+    await delay(400)
+    const s = state.sirens.find((x) => x.id === id)
+    log('admin', `siren test sent: ${s.name}`, { siren_id: id })
+    return s.endpoint_url ? { ok: true, status_code: 200, latency_ms: 180 } : { ok: true, virtual: true }
+  }],
+  ['POST', /^\/admin\/sirens\/([^/]+)\/sound$/, ([id], _q, b) => {
+    requireAdmin()
+    const s = state.sirens.find((x) => x.id === id)
+    if (state.sirenActs.some((a) => a.siren_id === id && a.status === 'active')) throw new ApiError(409, 'CONFLICT', 'This siren is already sounding')
+    const a = { id: `a${Date.now()}`, siren_id: id, zone_id: s.zone_id, status: 'active', source: 'manual', reason: b.reason, created_at: iso(Date.now()), started_at: iso(Date.now()) }
+    state.sirenActs.unshift(a)
+    log('siren', `siren sounding: ${s.name}`, { siren_id: id })
+    return a
+  }],
+  ['GET', /^\/admin\/siren-activations$/, (_m, q) => {
+    requireAdmin()
+    const items = state.sirenActs.filter((a) => (!q.status || a.status === q.status) && (!q.zone_id || a.zone_id === q.zone_id))
+    return { items: items.slice(0, Number(q.limit || 50)).map(activationOut) }
+  }],
+  ['POST', /^\/admin\/siren-activations\/([^/]+)\/(approve|stop|cancel)$/, ([id, action]) => {
+    requireAdmin()
+    const a = state.sirenActs.find((x) => x.id === id)
+    if (!a) throw new ApiError(404, 'NOT_FOUND', 'Siren activation not found')
+    const need = action === 'stop' ? 'active' : 'pending_approval'
+    if (a.status !== need) throw new ApiError(409, 'CONFLICT', `Activation is ${a.status}, not ${need}`)
+    const now = iso(Date.now())
+    if (action === 'approve') Object.assign(a, { status: 'active', started_at: now, approved_by: 'admin_demo' })
+    if (action === 'stop') Object.assign(a, { status: 'stopped', stopped_at: now, stop_reason: 'admin' })
+    if (action === 'cancel') Object.assign(a, { status: 'cancelled', stopped_at: now })
+    log('siren', `siren ${action}: ${state.sirens.find((s) => s.id === a.siren_id)?.name}`, { activation_id: id })
+    return a
   }],
   ['GET', /^\/admin\/runs$/, () => (requireAdmin(), { items: state.runs })],
   ['GET', /^\/admin\/settings$/, () => (requireAdmin(), state.settings)],

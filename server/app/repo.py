@@ -404,6 +404,64 @@ def sensor_readings_since(station_ids: list[str], since: datetime) -> dict[str, 
     return out
 
 
+# ---- Sirens (implementation-plan-v2 §6.3) ----
+
+def list_sirens() -> list[dict]:
+    return sb().table("sirens").select("*").order("created_at").execute().data
+
+
+def get_siren(siren_id: str) -> dict | None:
+    if not _is_uuid(siren_id):
+        return None
+    rows = sb().table("sirens").select("*").eq("id", siren_id).limit(1).execute().data
+    return rows[0] if rows else None
+
+
+def create_siren(row: dict) -> dict:
+    return sb().table("sirens").insert(row).execute().data[0]
+
+
+def update_siren(siren_id: str, patch: dict) -> dict | None:
+    rows = sb().table("sirens").update(patch).eq("id", siren_id).execute().data
+    return rows[0] if rows else None
+
+
+def create_siren_activation(row: dict) -> dict:
+    return sb().table("siren_activations").insert(row).execute().data[0]
+
+
+def update_siren_activation(activation_id: str, patch: dict) -> dict:
+    return sb().table("siren_activations").update(patch).eq("id", activation_id).execute().data[0]
+
+
+def get_siren_activation(activation_id: str) -> dict | None:
+    if not _is_uuid(activation_id):
+        return None
+    rows = sb().table("siren_activations").select("*").eq("id", activation_id).limit(1).execute().data
+    return rows[0] if rows else None
+
+
+def list_siren_activations(status: str | None = None, zone_id: str | None = None, limit: int = 100) -> list[dict]:
+    q = sb().table("siren_activations").select("*, sirens(name, endpoint_url), zones(name, slug)")
+    if status:
+        q = q.eq("status", status)
+    if zone_id:
+        q = q.eq("zone_id", zone_id)
+    return q.order("created_at", desc=True).limit(limit).execute().data
+
+
+def open_siren_activations(zone_id: str | None = None) -> list[dict]:
+    q = sb().table("siren_activations").select("*").in_("status", ["pending_approval", "active"])
+    if zone_id:
+        q = q.eq("zone_id", zone_id)
+    return q.execute().data
+
+
+def siren_activations_since(zone_id: str, since: datetime) -> list[dict]:
+    return (sb().table("siren_activations").select("*").eq("zone_id", zone_id)
+            .gte("created_at", iso(since)).execute().data)
+
+
 def list_reports(created_by: str | None, limit: int = 100) -> list[dict]:
     q = sb().table("reports").select("id,type,zone_ids,period_start,period_end,created_by,created_at,status")
     if created_by:

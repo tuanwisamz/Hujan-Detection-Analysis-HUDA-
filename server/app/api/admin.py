@@ -214,7 +214,14 @@ def _automation_out(s: AppSettings) -> dict:
     return {"automation": s.automation.model_dump(mode="json"), "cooldown_min": s.cooldown_min,
             "all_clear_after_min": s.all_clear_after_min, "pipeline_enabled": s.pipeline_enabled,
             "status": alerts.automation_status(s, repo.now()),
-            "pending_count": len(repo.list_warnings("pending_approval", 500))}
+            "pending_count": len(repo.list_warnings("pending_approval", 500)) + _pending_sirens()}
+
+
+def _pending_sirens() -> int:
+    try:  # works before migration 0004 too
+        return len(repo.list_siren_activations("pending_approval", limit=500))
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 @router.get("/automation")
@@ -230,7 +237,7 @@ def patch_automation(body: AutomationPatch, user: User = Depends(require_admin))
     if not patch:
         raise ApiError(422, "Nothing to update")
     auto = current.automation.model_dump()
-    for key in ("modes", "quiet_hours"):
+    for key in ("modes", "quiet_hours", "siren"):
         if key in patch:
             auto[key] = {**auto[key], **{k: v for k, v in patch.pop(key).items() if v is not None}}
     events = []

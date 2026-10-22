@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     telegram_bot_username: str = "huda_alert_bot"
 
     cron_secret: str = ""
+    siren_webhook_secret: str = ""  # signs siren webhooks (implementation-plan-v2 D22)
     weatherapi_key: str = ""
 
     frontend_origin: str = "http://localhost:5173"

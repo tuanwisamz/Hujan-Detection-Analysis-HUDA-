@@ -50,6 +50,15 @@ export const useSensors = (filters) =>
     refetchInterval: 5 * 60000,
   })
 
+export const useSirens = () => useQuery({ queryKey: ['sirens'], queryFn: () => api('/admin/sirens'), refetchInterval: 15000 })
+
+export const useSirenActivations = (status) =>
+  useQuery({
+    queryKey: ['sirenActivations', status],
+    queryFn: () => api('/admin/siren-activations', { query: { status, limit: 30 } }),
+    refetchInterval: 15000,
+  })
+
 export const useRuns = () => useQuery({ queryKey: ['runs'], queryFn: () => api('/admin/runs'), refetchInterval: 60000 })
 
 export const useReports = () =>

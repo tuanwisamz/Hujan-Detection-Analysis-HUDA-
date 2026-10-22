@@ -35,7 +35,7 @@ function UserLogs() {
   )
 }
 
-const CATEGORIES = ['ingest', 'model', 'agent', 'alert', 'auth', 'admin']
+const CATEGORIES = ['ingest', 'model', 'agent', 'alert', 'siren', 'auth', 'admin']
 const SEVERITIES = ['info', 'warn', 'error']
 const SEVERITY_STYLE = { info: 'bg-paper text-muted', warn: 'bg-level-amber-soft text-ink', error: 'bg-level-red-soft text-level-red' }
 

@@ -1,4 +1,4 @@
-import { Bot, FileText, Gauge, LogOut, Map as MapIcon, Megaphone, MessageCircle, ScrollText, Settings, Shield, User } from 'lucide-react'
+import { Bot, FileText, Gauge, LogOut, Map as MapIcon, Megaphone, MessageCircle, ScrollText, Settings, Shield, Siren, User } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useMe } from '../hooks/queries'
@@ -17,6 +17,7 @@ function navFor(base, admin) {
     items.push({ to: `${base}/warnings`, label: 'nav.warnings', Icon: Megaphone })
     items.push({ to: `${base}/automation`, label: 'nav.automation', Icon: Bot })
     items.push({ to: `${base}/sensors`, label: 'nav.sensors', Icon: Gauge })
+    items.push({ to: `${base}/sirens`, label: 'nav.sirens', Icon: Siren })
   }
   items.push({ to: `${base}/settings`, label: 'nav.settings', Icon: Settings })
   return items

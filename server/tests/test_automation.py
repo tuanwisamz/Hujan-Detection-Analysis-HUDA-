@@ -124,7 +124,8 @@ def test_legacy_amber_flag_maps_both_ways():
 
 def test_status_summary():
     st = alerts.automation_status(AppSettings(), NOW)
-    assert st["state"] == "active" and st["effective"] == {"amber": "auto", "red": "auto", "all_clear": "auto"}
+    assert st["state"] == "active"
+    assert st["effective"] == {"amber": "auto", "red": "auto", "all_clear": "auto", "siren": "approval"}
     st = alerts.automation_status(settings(paused_until=NOW + timedelta(hours=1)), NOW)
     assert st["state"] == "paused" and st["paused_until"] and st["effective"]["red"] == "approval"
     st = alerts.automation_status(settings(modes={"amber": "off", "red": "off", "all_clear": "off"}), NOW)
