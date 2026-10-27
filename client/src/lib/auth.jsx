@@ -59,7 +59,7 @@ export function useAppAuth() {
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
-// Clerk's sign-in, reset and account screens in HUDA's colours, light or dark (implementation-plan-v2 §6.4–6.5).
+// Clerk's sign-in, reset and account screens in HUDA's colours, light or dark (implementation-plan-v2 D24–D25).
 const CLERK_COLORS = {
   light: { colorPrimary: '#1E5450', colorBackground: '#FFFFFF', colorText: '#18302E', colorTextSecondary: '#5A6B69', colorInputBackground: '#FFFFFF', colorInputText: '#18302E', colorDanger: '#C62828' },
   dark: { colorPrimary: '#7FD0C5', colorBackground: '#172524', colorText: '#E3ECEA', colorTextSecondary: '#9FB1AE', colorInputBackground: '#0F1A19', colorInputText: '#E3ECEA', colorDanger: '#FF8A80', colorTextOnPrimaryBackground: '#0B1413' },

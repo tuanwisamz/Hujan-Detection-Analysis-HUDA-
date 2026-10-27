@@ -1,4 +1,4 @@
-"""Failure drills (task.md Day 3, implementation-plan §6): a source down -> degraded badge;
+"""Failure drills (architecture.md §3, Failure drills): a source down -> degraded badge;
 Gemini 429 -> template. FAULT_INJECT names the sources to break."""
 
 from types import SimpleNamespace

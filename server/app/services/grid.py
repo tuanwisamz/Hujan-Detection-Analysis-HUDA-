@@ -2,7 +2,7 @@
 
 The grid is kept in Web Mercator (not reprojected). Leaflet's ImageOverlay places it
 correctly as long as `bounds` are the stitched tiles' edge coordinates
-(implementation-plan §5.3, step 3).
+(architecture.md §3, step 1).
 """
 
 import math

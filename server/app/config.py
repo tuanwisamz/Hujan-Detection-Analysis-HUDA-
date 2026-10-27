@@ -36,13 +36,13 @@ class Settings(BaseSettings):
 
     model_path: Path = SERVER_DIR.parent / "ml" / "models" / "lgbm_v1.txt"
     radar_cache_dir: Path = Path("/tmp/huda_radar")
-    # RainViewer tile options: {smooth}_{snow}. 0_0 decodes cleanly (implementation-plan §5.3).
+    # RainViewer tile options: {smooth}_{snow}. 0_0 decodes cleanly (architecture.md §3, step 1).
     rainviewer_decode_options: str = "0_0"
     rainviewer_display_options: str = "1_1"
     # "auto" = pySTEPS if installed, else global shift. "global_shift" never loads pySTEPS (512 MB hosts).
     nowcast_method: str = "auto"
 
-    # Dev-only failure drills, e.g. "open_meteo,gemini" (implementation-plan §6).
+    # Dev-only failure drills, e.g. "open_meteo,gemini" (architecture.md §3, Failure drills).
     fault_inject: str = ""
 
     @property

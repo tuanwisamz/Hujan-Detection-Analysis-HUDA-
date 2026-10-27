@@ -1,4 +1,4 @@
-"""A local siren controller for testing webhooks (implementation-plan-v2 §7).
+"""A local siren controller for testing webhooks (api-spec.md §13, siren webhook).
 
     SIREN_WEBHOOK_SECRET=... python -m scripts.siren_receiver [port]
 

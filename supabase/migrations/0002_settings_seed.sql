@@ -1,5 +1,5 @@
 -- Default settings (api-spec.md §9). amber_p / red_p get replaced by the
--- validation-chosen cut-offs once the classifier is trained (implementation-plan §5.6 step 7).
+-- validation-chosen cut-offs once the classifier is trained (architecture.md §5.2).
 
 insert into settings (key, value, updated_by) values
   ('thresholds', '{"amber_rate_mmh": 10, "red_rate_mmh": 30, "amber_p": 0.4, "red_p": 0.7, "wet_ground_mm24h": 50,

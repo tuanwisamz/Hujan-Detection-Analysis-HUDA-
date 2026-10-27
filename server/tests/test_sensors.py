@@ -1,4 +1,4 @@
-"""JPS InfoBanjir parsing and sensor evidence (implementation-plan-v2 §6.2)."""
+"""JPS InfoBanjir parsing and sensor evidence (architecture.md §3.2)."""
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path

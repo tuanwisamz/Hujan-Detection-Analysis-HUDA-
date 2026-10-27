@@ -1,4 +1,4 @@
-"""Admin view of JPS sensor stations (api-spec §12, implementation-plan-v2 §6.2)."""
+"""Admin view of JPS sensor stations (api-spec §12, architecture.md §3.2)."""
 
 from datetime import timedelta
 

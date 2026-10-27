@@ -232,7 +232,7 @@ def process_run(run_id: str, zones: dict[str, dict], predictions: dict[str, dict
         repo.log_event("alert", f"{action.kind} {action.level.value} for {zone['name']} ({action.reason})",
                        meta={"zone_id": zone_id, "warning_id": row["id"], "run_id": run_id})
 
-    # One Gemini call for every raise in this run (implementation-plan §5.3 "Bursts").
+    # One Gemini call for every raise in this run (architecture.md §3 step 7, "Bursts").
     raises = [(row, zone, pred) for row, zone, pred, a in queued if a.kind == "raise"]
     if auto.use_ai_text:
         texts = alert_writer.write_alerts([alert_writer.event(zone, row["level"], pred) for row, zone, pred in raises])

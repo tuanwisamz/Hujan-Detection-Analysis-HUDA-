@@ -7,7 +7,7 @@ import { api } from '../lib/api'
 import { useT } from '../lib/i18n'
 import { formatDateTime } from '../lib/time'
 
-// Township sirens (spec FR-35, implementation-plan-v2 §6.3). Virtual sirens need no hardware;
+// Township sirens (spec FR-35, architecture.md §3.3). Virtual sirens need no hardware;
 // webhook sirens get signed siren.on / siren.off / siren.test POSTs.
 
 const INVALIDATE = ['sirens', 'sirenActivations', 'automation', 'live']

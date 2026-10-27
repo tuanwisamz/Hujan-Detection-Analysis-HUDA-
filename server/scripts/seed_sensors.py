@@ -1,4 +1,4 @@
-"""Seed JPS stations for the zone states (implementation-plan-v2 §6.2, D21). Re-runnable.
+"""Seed JPS stations for the zone states (architecture.md §3.2, implementation-plan-v2 D21). Re-runnable.
 
     python -m scripts.seed_sensors          # write to sensor_stations
     python -m scripts.seed_sensors --dry    # print what would change

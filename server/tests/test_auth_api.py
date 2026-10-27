@@ -88,7 +88,7 @@ def test_admin_settings_validation(client, monkeypatch):
 
 
 def test_unhandled_error_keeps_cors_headers(client, monkeypatch):
-    """A 500 without CORS headers reaches the browser as "Can't reach the server" (fixplan.md F5)."""
+    """A 500 without CORS headers reaches the browser as "Can't reach the server" (api-spec.md Conventions)."""
     def boom():
         raise RuntimeError("db down")
 

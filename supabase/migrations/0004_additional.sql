@@ -1,4 +1,4 @@
--- Phase 2 additional features (implementation-plan-v2 §6.6): night mode, JPS sensors, sirens.
+-- Phase 2 additional features (architecture.md §6): night mode, JPS sensors, sirens.
 -- Run after 0001–0003. Safe to re-run.
 
 -- Night mode (D24)

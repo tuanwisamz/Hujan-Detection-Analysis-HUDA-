@@ -2,7 +2,7 @@
 
 Township-level flood-rain warnings for Sime Darby Property communities in Peninsular Malaysia: live radar, a 60-minute nowcast, a GREEN / AMBER / RED level per township, and bilingual Telegram alerts.
 
-Docs: [spec](docs/spec.md) · [architecture](docs/architecture.md) · [API](docs/api-spec.md) · [implementation plan + build status](docs/implementation-plan.md) · [task plan](docs/task.md)
+Docs: [spec](docs/spec.md) · [architecture](docs/architecture.md) · [API](docs/api-spec.md) · [decisions D1–D15](docs/implementation-plan.md) · [decisions D16–D25](docs/implementation-plan-v2.md) · [open work](docs/task.md)
 
 ## Run it
 

@@ -22,7 +22,7 @@ def test_agents_never_import_risk_engine():
 
 
 def test_agents_never_import_sirens():
-    """Only the pipeline and admins sound a siren (implementation-plan-v2 §6.3)."""
+    """Only the pipeline and admins sound a siren (implementation-plan-v2 D23)."""
     for path in AGENTS_DIR.glob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

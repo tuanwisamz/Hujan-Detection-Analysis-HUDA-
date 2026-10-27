@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n'
 import { BASEMAP } from '../lib/map'
 import { formatDateTime } from '../lib/time'
 
-// JPS rain gauges and river stations near the zones (spec FR-13, implementation-plan-v2 §6.2).
+// JPS rain gauges and river stations near the zones (spec FR-13, architecture.md §3.2).
 
 const RIVER_STYLE = {
   NORMAL: 'bg-paper text-ink',

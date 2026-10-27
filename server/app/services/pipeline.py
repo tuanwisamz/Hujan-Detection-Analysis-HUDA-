@@ -193,7 +193,7 @@ def run(run_id: str, backfill_ts: datetime | None = None, fixture: str | None = 
             except Exception as exc:  # noqa: BLE001
                 sources["met_warnings"] = "failed"
                 repo.log_event("ingest", f"data.gov.my warning fetch failed: {exc}", "warn", meta={"run_id": run_id})
-            try:  # an extra check: a failure never makes the run degraded (v2 §6.2)
+            try:  # an extra check: a failure never makes the run degraded (architecture.md §3 step 2)
                 sensor_ev = _sensor_evidence(zones, now, sources)
             except Exception as exc:  # noqa: BLE001
                 sources["infobanjir"] = "failed"
@@ -234,7 +234,7 @@ def run(run_id: str, backfill_ts: datetime | None = None, fixture: str | None = 
             sources["alerts"] = "failed"
             repo.log_event("alert", f"alert manager failed: {exc}", "error", meta={"run_id": run_id})
 
-        # 7b. Sirens (v2 §6.3)
+        # 7b. Sirens (architecture.md §3.3)
         try:
             sirens.process_run(run_id, {z["id"]: z for z in zones}, results, settings)
         except Exception as exc:  # noqa: BLE001

@@ -1,4 +1,4 @@
-"""Replay archived storms under the old and new RED rules (implementation-plan-v2 §6.1).
+"""Replay archived storms under the old and new RED rules (implementation-plan-v2 D16).
 
     python -m scripts.replay_red            # synthetic storm + every storm in radar-archive
     python -m scripts.replay_red --limit 20 # only the 20 most recent archived storms

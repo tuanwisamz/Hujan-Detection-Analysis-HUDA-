@@ -1,6 +1,6 @@
 # AGENTS.md — working on HUDA
 
-Read these first, in order: `docs/spec.md` → `docs/architecture.md` → `docs/api-spec.md` → `docs/implementation-plan.md` (build order, decisions D1–D12) → `docs/task.md` (schedule).
+Read these first, in order: `docs/spec.md` → `docs/architecture.md` → `docs/api-spec.md` → `docs/implementation-plan.md` (decisions D1–D15) → `docs/implementation-plan-v2.md` (decisions D16–D25) → `docs/task.md` (open work).
 
 ## Layout
 

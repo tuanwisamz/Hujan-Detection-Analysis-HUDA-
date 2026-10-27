@@ -362,7 +362,7 @@ def station_key(kind: str, code: str) -> str:
     return f"jps-{kind}:{code}"
 
 
-# ---- Sensors (implementation-plan-v2 §6.2) ----
+# ---- Sensors (architecture.md §3.2) ----
 
 STATION_FIELDS = ("id,kind,source,station_code,name,district,state,lat,lon,location_quality,"
                   "location_source,active,note,updated_at")
@@ -408,7 +408,7 @@ def sensor_readings_since(station_ids: list[str], since: datetime) -> dict[str, 
     return out
 
 
-# ---- Sirens (implementation-plan-v2 §6.3) ----
+# ---- Sirens (architecture.md §3.3) ----
 
 def list_sirens() -> list[dict]:
     return sb().table("sirens").select("*").order("created_at").execute().data
