@@ -290,6 +290,10 @@ def list_warnings(status: str | None = None, limit: int = 100) -> list[dict]:
     return q.order("created_at", desc=True).limit(limit).execute().data
 
 
+def count_warnings(status: str) -> int:
+    return sb().table("warnings").select("id", count="exact").eq("status", status).limit(1).execute().count or 0
+
+
 def sent_alerts(zone_ids: list[str] | None, frm=None, to=None, level=None, limit=50, cursor=None) -> dict:
     q = sb().table("warnings").select("*, zones(name, slug)").eq("status", "sent")
     if zone_ids is not None:
@@ -448,6 +452,11 @@ def list_siren_activations(status: str | None = None, zone_id: str | None = None
     if zone_id:
         q = q.eq("zone_id", zone_id)
     return q.order("created_at", desc=True).limit(limit).execute().data
+
+
+def count_siren_activations(status: str) -> int:
+    return (sb().table("siren_activations").select("id", count="exact").eq("status", status)
+            .limit(1).execute().count or 0)
 
 
 def open_siren_activations(zone_id: str | None = None) -> list[dict]:

@@ -1,9 +1,9 @@
 import { Bot, ExternalLink, KeyRound, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Button, ErrorNote, Field, inputClass, Loading, Page, Panel, useToast } from '../components/ui'
+import { Button, ErrorNote, Field, inputClass, Loading, Page, Panel, SaveBar, useToast } from '../components/ui'
 import { useAdminSettings, useApiMutation, useMe, useRuns } from '../hooks/queries'
-import { api } from '../lib/api'
+import { api, errorText } from '../lib/api'
 import { useT } from '../lib/i18n'
 import { THEMES, useTheme } from '../lib/theme'
 
@@ -28,7 +28,7 @@ export function ThemeChoice() {
               checked={pref === value}
               onChange={() => {
                 setPref(value)
-                save.mutate(value, { onSuccess: () => toast(t('settings.saved')), onError: (e) => toast(e.message, 'error') })
+                save.mutate(value, { onSuccess: () => toast(t('settings.saved')), onError: (e) => toast(errorText(e, t), 'error') })
               }}
             />
             {t(`theme.${value}`)}
@@ -59,7 +59,7 @@ export function LanguageChoice() {
               checked={lang === code}
               onChange={() => {
                 setLang(code)
-                save.mutate(code, { onSuccess: () => toast(t('settings.saved')) })
+                save.mutate(code, { onSuccess: () => toast(t('settings.saved')), onError: (e) => toast(errorText(e, t), 'error') })
               }}
             />
             {label}
@@ -82,7 +82,11 @@ export function TelegramLink() {
     <div>
       <p className="mb-3">{linked ? t('settings.telegramLinked') : t('settings.telegramNot')}</p>
       {linked ? (
-        <Button variant="secondary" busy={unlink.isPending} onClick={() => unlink.mutate(undefined, { onSuccess: () => toast(t('settings.saved')) })}>
+        <Button
+          variant="secondary"
+          busy={unlink.isPending}
+          onClick={() => unlink.mutate(undefined, { onSuccess: () => toast(t('settings.saved')), onError: (e) => toast(errorText(e, t), 'error') })}
+        >
           {t('settings.telegramUnlink')}
         </Button>
       ) : link ? (
@@ -97,7 +101,7 @@ export function TelegramLink() {
           {t('settings.telegramOpen')}
         </a>
       ) : (
-        <Button busy={create.isPending} onClick={() => create.mutate(undefined, { onSuccess: setLink, onError: (e) => toast(e.message, 'error') })}>
+        <Button busy={create.isPending} onClick={() => create.mutate(undefined, { onSuccess: setLink, onError: (e) => toast(errorText(e, t), 'error') })}>
           <Send size={16} aria-hidden="true" />
           {t('settings.telegramLink')}
         </Button>
@@ -127,6 +131,12 @@ function Toggle({ label, hint, checked, onChange }) {
   )
 }
 
+/** The PATCH body; also how a draft is compared with what's saved. */
+const toBody = (s) => ({
+  thresholds: Object.fromEntries(Object.entries(s.thresholds).map(([k, v]) => [k, v === '' ? v : Number(v)])),
+  pipeline_enabled: s.pipeline_enabled,
+})
+
 /** Thresholds are bounded and Amber can't exceed Red (spec §10.1 Constraints). */
 function AdminSettings() {
   const { t } = useT()
@@ -134,29 +144,36 @@ function AdminSettings() {
   const settings = useAdminSettings()
   const runs = useRuns()
   const [draft, setDraft] = useState(null)
-  const save = useApiMutation((body) => api('/admin/settings', { method: 'PATCH', body }), ['settings'])
+  const [savedAt, setSavedAt] = useState(null)
+  // A settings PATCH can also change automation (legacy amber toggle, pipeline_enabled).
+  const save = useApiMutation((body) => api('/admin/settings', { method: 'PATCH', body }), ['automation'], { setKey: 'settings' })
   if (settings.isLoading) return <Loading />
   if (settings.error) return <ErrorNote error={settings.error} onRetry={settings.refetch} />
   const s = draft || settings.data
   const th = s.thresholds
-  const setTh = (k) => (v) => setDraft({ ...s, thresholds: { ...th, [k]: v } })
-  const set = (k) => (v) => setDraft({ ...s, [k]: v })
+  const dirty = JSON.stringify(toBody(s)) !== JSON.stringify(toBody(settings.data))
+  const edit = (next) => {
+    if (save.isError) save.reset() // a new edit replaces the last failure message
+    setDraft(next)
+  }
+  const setTh = (k) => (v) => edit({ ...s, thresholds: { ...th, [k]: v } })
+  const set = (k) => (v) => edit({ ...s, [k]: v })
   const rateErr = Number(th.amber_rate_mmh) >= Number(th.red_rate_mmh) ? t('settings.error.order') : null
   const pErr = Number(th.amber_p) >= Number(th.red_p) ? t('settings.error.order') : null
   const veryErr = Number(th.red_rate_mmh) >= Number(th.very_heavy_mmh) ? t('settings.error.veryHeavy') : null
   const gaugeErr = Number(th.gauge_amber_1h_mm) >= Number(th.gauge_red_1h_mm) ? t('settings.error.order') : null
   const stepErr = (k) => (Number(th[k]) % 10 ? t('settings.error.step10') : null)
   const errors = [rateErr, pErr, veryErr, gaugeErr, stepErr('red_duration_min'), stepErr('very_heavy_duration_min')]
+  const invalid = errors.some(Boolean) || Object.values(th).some((v) => v === '' || Number.isNaN(Number(v)))
   const sources = runs.data?.items?.[0]?.sources || {}
 
   const submit = (e) => {
     e.preventDefault()
-    if (errors.some(Boolean)) return
-    const body = {
-      thresholds: Object.fromEntries(Object.entries(th).map(([k, v]) => [k, Number(v)])),
-      pipeline_enabled: s.pipeline_enabled,
-    }
-    save.mutate(body, { onSuccess: () => (setDraft(null), toast(t('settings.saved'))), onError: (err) => toast(err.message, 'error') })
+    if (invalid) return
+    save.mutate(toBody(s), {
+      onSuccess: () => (setDraft(null), setSavedAt(new Date().toISOString()), toast(t('settings.saved'))),
+      onError: (err) => toast(errorText(err, t), 'error'),
+    })
   }
 
   return (
@@ -210,9 +227,16 @@ function AdminSettings() {
           ))}
         </ul>
       </Panel>
-      <Button type="submit" busy={save.isPending} disabled={!draft || errors.some(Boolean)}>
+      <SaveBar
+        dirty={dirty}
+        saving={save.isPending}
+        error={save.error}
+        savedAt={savedAt}
+        invalid={invalid}
+        onDiscard={() => (setDraft(null), save.reset())}
+      >
         {t('settings.save')}
-      </Button>
+      </SaveBar>
     </form>
   )
 }

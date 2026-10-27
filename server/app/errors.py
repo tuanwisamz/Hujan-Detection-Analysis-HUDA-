@@ -45,7 +45,11 @@ def install(app: FastAPI) -> None:
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
         request.state.request_id = uuid.uuid4().hex[:12]
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:  # noqa: BLE001  handled here, inside CORS, so the browser can read the 500
+            log.exception("unhandled error (request_id=%s)", request.state.request_id)
+            return _envelope(request, 500, "INTERNAL", "Internal server error")
         response.headers["X-Request-ID"] = request.state.request_id
         return response
 

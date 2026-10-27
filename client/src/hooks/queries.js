@@ -70,12 +70,18 @@ export const useReports = () =>
 
 export const useReport = (id) => useQuery({ queryKey: ['report', id], queryFn: () => api(`/reports/${id}`), enabled: !!id })
 
-/** Mutation that invalidates the given query keys on success. */
-export function useApiMutation(fn, invalidate = []) {
+/**
+ * Mutation that invalidates the given query keys on success. With `setKey`, the response is cached under
+ * that key first, so a form reset in the caller's onSuccess shows the saved values, not the stale ones.
+ */
+export function useApiMutation(fn, invalidate = [], { setKey } = {}) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => invalidate.forEach((key) => qc.invalidateQueries({ queryKey: [key] })),
+    onSuccess: (data) => {
+      if (setKey) qc.setQueryData([setKey], data)
+      invalidate.filter((key) => key !== setKey).forEach((key) => qc.invalidateQueries({ queryKey: [key] }))
+    },
   })
 }
 

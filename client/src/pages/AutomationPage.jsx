@@ -2,9 +2,9 @@ import { BellOff, CirclePause, CirclePlay, Clock3, MessageSquareText, Moon, Send
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import RiskBadge from '../components/RiskBadge'
-import { Button, ConfirmDialog, EmptyState, ErrorNote, Field, inputClass, Loading, Page, Panel, useToast } from '../components/ui'
+import { Button, ConfirmDialog, EmptyState, ErrorNote, Field, inputClass, Loading, Page, Panel, SaveBar, useToast } from '../components/ui'
 import { useApiMutation, useAutomation, useAutomationActivity, useZones } from '../hooks/queries'
-import { api } from '../lib/api'
+import { api, errorText } from '../lib/api'
 import { useT } from '../lib/i18n'
 import { formatDateTime, formatTime } from '../lib/time'
 
@@ -16,6 +16,15 @@ const EVENT_LEVEL = { amber: 'AMBER', red: 'RED', all_clear: 'GREEN', siren: 'RE
 const MODES = ['auto', 'approval', 'off']
 const PAUSES = [60, 180, 720]
 const INVALIDATE = ['automation', 'settings', 'warnings', 'automationActivity']
+const NUMS = [
+  ['cooldown_min', 0, 1440],
+  ['all_clear_after_min', 0, 1440],
+  ['auto_expires_min', 15, 1440],
+]
+const SIREN_NUMS = [
+  ['max_on_min', 5, 120],
+  ['approval_expires_min', 5, 60],
+]
 
 const STATE_STYLE = {
   active: { box: 'border-level-green/40 bg-level-green-soft', Icon: CirclePlay, icon: 'text-level-green' },
@@ -39,6 +48,19 @@ function editable(data) {
   }
 }
 
+const num = (v) => (v === '' ? v : Number(v))
+
+/** The PATCH body: number inputs back to numbers, lists in a fixed order. Also how a draft is compared with what's saved. */
+function toBody(s) {
+  return {
+    ...s,
+    ...Object.fromEntries(NUMS.map(([k]) => [k, num(s[k])])),
+    quiet_hours: { ...s.quiet_hours, events: EVENTS.filter((e) => s.quiet_hours.events.includes(e)) },
+    zone_overrides: Object.fromEntries(Object.entries(s.zone_overrides).sort()),
+    siren: Object.fromEntries(SIREN_NUMS.map(([k]) => [k, num(s.siren[k])])),
+  }
+}
+
 function EventName({ event }) {
   const { t } = useT()
   return (
@@ -53,11 +75,11 @@ function EventName({ event }) {
 function StatusCard({ data }) {
   const { t, lang } = useT()
   const toast = useToast()
-  const act = useApiMutation((body) => api('/admin/automation', { method: 'PATCH', body }), INVALIDATE)
+  const act = useApiMutation((body) => api('/admin/automation', { method: 'PATCH', body }), INVALIDATE, { setKey: 'automation' })
   const st = data.status
   const style = STATE_STYLE[st.state] || STATE_STYLE.active
   const paused = st.state === 'paused'
-  const run = (body, msg) => act.mutate(body, { onSuccess: () => toast(msg), onError: (e) => toast(e.message, 'error') })
+  const run = (body, msg) => act.mutate(body, { onSuccess: () => toast(msg), onError: (e) => toast(errorText(e, t), 'error') })
 
   const headline = paused
     ? st.paused_until
@@ -238,7 +260,7 @@ function TestMessage() {
         onConfirm={() =>
           test.mutate(undefined, {
             onSuccess: (r) => (toast(t('auto.testSent', { id: r.telegram_message_id })), setOpen(false)),
-            onError: (e) => (toast(e.message, 'error'), setOpen(false)),
+            onError: (e) => (toast(errorText(e, t), 'error'), setOpen(false)),
           })
         }
       />
@@ -251,7 +273,8 @@ export default function AutomationPage() {
   const toast = useToast()
   const auto = useAutomation()
   const [draft, setDraft] = useState(null)
-  const save = useApiMutation((body) => api('/admin/automation', { method: 'PATCH', body }), INVALIDATE)
+  const [savedAt, setSavedAt] = useState(null)
+  const save = useApiMutation((body) => api('/admin/automation', { method: 'PATCH', body }), INVALIDATE, { setKey: 'automation' })
   const base = useMemo(() => (auto.data ? editable(auto.data) : null), [auto.data])
 
   if (auto.isLoading)
@@ -268,38 +291,28 @@ export default function AutomationPage() {
     )
 
   const s = draft || base
-  const dirty = JSON.stringify(s) !== JSON.stringify(base)
-  const set = (k) => (v) => setDraft({ ...s, [k]: v })
-  const setMode = (e) => (m) => setDraft({ ...s, modes: { ...s.modes, [e]: m } })
-  const setQuiet = (k) => (v) => setDraft({ ...s, quiet_hours: { ...s.quiet_hours, [k]: v } })
+  const dirty = JSON.stringify(toBody(s)) !== JSON.stringify(toBody(base))
+  const edit = (next) => {
+    if (save.isError) save.reset() // a new edit replaces the last failure message
+    setDraft(next)
+  }
+  const set = (k) => (v) => edit({ ...s, [k]: v })
+  const setMode = (e) => (m) => edit({ ...s, modes: { ...s.modes, [e]: m } })
+  const setQuiet = (k) => (v) => edit({ ...s, quiet_hours: { ...s.quiet_hours, [k]: v } })
   const toggleQuietEvent = (e) => (on) =>
     setQuiet('events')(on ? [...new Set([...s.quiet_hours.events, e])] : s.quiet_hours.events.filter((x) => x !== e))
   const quietBad = s.quiet_hours.start === s.quiet_hours.end
-  const nums = [
-    ['cooldown_min', 0, 1440],
-    ['all_clear_after_min', 0, 1440],
-    ['auto_expires_min', 15, 1440],
-  ]
-  const sirenNums = [
-    ['max_on_min', 5, 120],
-    ['approval_expires_min', 5, 60],
-  ]
   const bad = (v, min, max) => v === '' || Number.isNaN(Number(v)) || Number(v) < min || Number(v) > max
-  const numsBad = nums.some(([k, min, max]) => bad(s[k], min, max)) || sirenNums.some(([k, min, max]) => bad(s.siren[k], min, max))
-  const setSiren = (k) => (v) => setDraft({ ...s, siren: { ...s.siren, [k]: v } })
+  const numsBad = NUMS.some(([k, min, max]) => bad(s[k], min, max)) || SIREN_NUMS.some(([k, min, max]) => bad(s.siren[k], min, max))
+  const setSiren = (k) => (v) => edit({ ...s, siren: { ...s.siren, [k]: v } })
   const overrideCount = Object.keys(s.zone_overrides).length
 
   const submit = (e) => {
     e.preventDefault()
     if (quietBad || numsBad) return
-    const body = {
-      ...s,
-      ...Object.fromEntries(nums.map(([k]) => [k, Number(s[k])])),
-      siren: Object.fromEntries(sirenNums.map(([k]) => [k, Number(s.siren[k])])),
-    }
-    save.mutate(body, {
-      onSuccess: () => (setDraft(null), toast(t('auto.saved'))),
-      onError: (err) => toast(err.message, 'error'),
+    save.mutate(toBody(s), {
+      onSuccess: () => (setDraft(null), setSavedAt(new Date().toISOString()), toast(t('auto.saved'))),
+      onError: (err) => toast(errorText(err, t), 'error'),
     })
   }
 
@@ -392,20 +405,17 @@ export default function AutomationPage() {
             <ZoneOverrides value={s.zone_overrides} onChange={set('zone_overrides')} />
           </Panel>
 
-          <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3 ${dirty ? 'sticky bottom-16 z-10 shadow-sm lg:bottom-4' : ''}`}>
-            <Button type="submit" busy={save.isPending} disabled={!dirty || quietBad || numsBad}>
-              <ShieldCheck size={16} aria-hidden="true" />
-              {t('auto.save')}
-            </Button>
-            {dirty && (
-              <>
-                <span className="text-sm font-semibold">{t('auto.unsaved')}</span>
-                <Button variant="ghost" onClick={() => setDraft(null)}>
-                  {t('auto.discard')}
-                </Button>
-              </>
-            )}
-          </div>
+          <SaveBar
+            dirty={dirty}
+            saving={save.isPending}
+            error={save.error}
+            savedAt={savedAt}
+            invalid={quietBad || numsBad}
+            onDiscard={() => (setDraft(null), save.reset())}
+          >
+            <ShieldCheck size={16} aria-hidden="true" />
+            {t('auto.save')}
+          </SaveBar>
         </form>
 
         <Panel title={t('auto.activity')}>

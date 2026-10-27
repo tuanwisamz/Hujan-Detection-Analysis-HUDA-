@@ -87,6 +87,20 @@ def test_admin_settings_validation(client, monkeypatch):
     assert ok.status_code == 200 and ok.json()["cooldown_min"] == 45 and saved == {"cooldown_min": 45}
 
 
+def test_unhandled_error_keeps_cors_headers(client, monkeypatch):
+    """A 500 without CORS headers reaches the browser as "Can't reach the server" (fixplan.md F5)."""
+    def boom():
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(repo, "get_app_settings", boom)
+    r = client.get("/api/v1/admin/settings", headers={"Authorization": f"Bearer {token(sub='admin_1')}",
+                                                      "Origin": "http://localhost:5173"})
+    assert r.status_code == 500
+    body = r.json()["error"]
+    assert body["code"] == "INTERNAL" and body["request_id"] == r.headers["X-Request-ID"]
+    assert r.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
 def test_ingest_requires_cron_secret(client):
     r = client.post("/api/v1/internal/ingest", headers={"X-Cron-Secret": "wrong"})
     assert r.status_code == 401

@@ -1,6 +1,8 @@
-import { ChevronDown, LoaderCircle, X } from 'lucide-react'
+import { ChevronDown, CircleCheck, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
+import { errorText } from '../lib/api'
 import { useT } from '../lib/i18n'
+import { formatTime } from '../lib/time'
 
 // Small shared UI pieces. Primary buttons are filled, secondary outlined (spec §10.1 Affordances).
 
@@ -15,8 +17,9 @@ export function Button({ variant = 'primary', busy = false, className = '', chil
     <button
       type="button"
       className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${styles[variant]} ${className}`}
-      disabled={busy || props.disabled}
       {...props}
+      disabled={busy || props.disabled}
+      aria-busy={busy || undefined}
     >
       {busy && <LoaderCircle aria-hidden="true" size={16} className="animate-spin" />}
       {children}
@@ -188,6 +191,41 @@ export function Tabs({ tabs, value, onChange, label }) {
           {tab.count != null && <span className="ml-1.5 rounded-full bg-ink/10 px-1.5 text-xs tabular">{tab.count}</span>}
         </button>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Save row for a form: says whether changes are saved, being saved or failed (spec §10.1 Feedback).
+ * Sticky while there are unsaved changes; children are the Save button's content.
+ */
+export function SaveBar({ dirty, saving, error, savedAt, invalid, onDiscard, children }) {
+  const { t, lang } = useT()
+  const [Icon, tone, text] = saving
+    ? [null, '', t('save.saving')]
+    : error
+      ? [TriangleAlert, 'text-level-red', t('save.failed', { msg: errorText(error, t) })]
+      : dirty && invalid
+        ? [TriangleAlert, 'text-level-red', t('save.invalid')]
+        : dirty
+          ? [null, '', t('save.unsaved')]
+          : savedAt
+            ? [CircleCheck, 'text-level-green', t('save.savedAt', { time: formatTime(savedAt, lang) })]
+            : [null, 'font-normal text-muted', t('save.none')]
+  return (
+    <div className={`flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3 ${dirty ? 'sticky bottom-16 z-10 shadow-sm lg:bottom-4' : ''}`}>
+      <Button type="submit" busy={saving} disabled={!dirty || invalid}>
+        {children}
+      </Button>
+      <p role="status" className={`flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold ${tone}`}>
+        {Icon && <Icon aria-hidden="true" size={16} className="shrink-0" />}
+        {text}
+      </p>
+      {dirty && (
+        <Button variant="ghost" disabled={saving} onClick={onDiscard}>
+          {t('save.discard')}
+        </Button>
+      )}
     </div>
   )
 }
