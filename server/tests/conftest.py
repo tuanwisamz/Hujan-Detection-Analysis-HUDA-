@@ -11,3 +11,6 @@ os.environ.setdefault("CRON_SECRET", "test-cron-secret")
 os.environ.setdefault("CLERK_ISSUER", "https://test.clerk.accounts.dev")
 os.environ.setdefault("FRONTEND_ORIGIN", "http://localhost:5173")
 os.environ.setdefault("MODEL_PATH", str(Path(__file__).parent / "no-model.txt"))
+# Same nowcast as Render (render.yaml). With "auto", CI's Linux runner installs pySTEPS and the
+# synthetic storm nowcasts differently from Windows dev machines, where pySTEPS doesn't build.
+os.environ.setdefault("NOWCAST_METHOD", "global_shift")
